@@ -1,0 +1,323 @@
+# InsightHub: Real-Time Smart Log Monitoring System
+
+A comprehensive documentation covering the architecture, system design, functionality, ML pipeline, requirements, setup instructions, API specs, project goals, and implementation details.
+
+---
+
+# 🔥 Overview
+**InsightHub** is a distributed, real-time log aggregation, monitoring, and anomaly detection platform. It allows multiple applications or microservices to send structured logs to a central ingestion system, where logs are processed, tagged, analyzed by an anomaly-detection ML model, stored in a time-series database, and visualized on a full-stack interactive dashboard.
+
+---
+
+# ✨ Features
+- Distributed log ingestion
+- SDKs for services to push logs
+- Scalable message queue (Kafka/RabbitMQ)
+- ML-powered anomaly detection pipeline
+- WebSocket‑enabled real-time dashboard
+- Alerts (Slack/Email)
+- Log querying system
+- Charts for errors, latency, anomaly scores
+- Role-based authentication
+
+---
+
+# 🏗️ High-Level Architecture
+```
+Client Services → SDK → Ingestion API → Queue → Stream Processor → ML Engine
+                                         ↓                             ↓
+                                   Storage (DB)                  Alert Engine
+                                         ↓                             ↓
+                                    Dashboard (Next.js) ← WebSockets ←──┘
+```
+---
+
+# 🧱 Components Breakdown
+
+## 1. Client SDK
+Lightweight libraries in Python/JavaScript that:
+- Collect logs in JSON
+- Batch and send logs to Ingestion API
+- Add metadata (service name, instance ID, env)
+
+### Example Log Payload
+```json
+{
+  "timestamp": "2025-12-02T10:10:02Z",
+  "service": "payment-service",
+  "level": "ERROR",
+  "message": "Stripe timeout",
+  "latency_ms": 1320,
+  "userId": 1932
+}
+```
+---
+
+## 2. Ingestion Service (Node.js/Go)
+Responsible for:
+- Receiving logs via HTTP
+- Authentication using service tokens
+- Validation and formatting
+- Publishing logs to Kafka/RabbitMQ
+
+### Responsibilities
+- Rate limiting per service
+- JSON schema validation
+- Batch insertion support
+- Dead-letter queue for malformed logs
+
+---
+
+## 3. Message Queue (Kafka/RabbitMQ)
+The backbone of the distributed design.
+
+### Purpose
+- Buffering logs
+- Smoothing spikes
+- Decoupling producers (services) from consumers (processors)
+- Scaling independent microservices
+
+---
+
+## 4. Stream Processor (Python/Node.js)
+Listens to the queue and enriches logs.
+
+### Responsibilities
+- Preprocessing logs (normalize fields)
+- Adding metadata (region, instance)
+- Generating `anomaly_score` using ML model
+- Detecting patterns and spikes
+- Inserting logs into TimeSeries DB
+
+---
+
+## 5. ML Anomaly Detection Engine
+You can start simple:
+- **Isolation Forest** for anomaly detection
+- **Moving average + thresholding** for latency spikes
+
+### Steps
+1. Extract numerical features (latency, frequency, counts)
+2. Train Isolation Forest on normal logs
+3. Score incoming logs in real-time
+4. Flag logs above threshold: `is_anomaly: true`
+
+---
+
+## 6. Storage Layer
+Best choices:
+- **TimescaleDB (PostgreSQL extension)** for time-series
+- MongoDB for flexible search
+
+### Data Models
+#### Logs Table
+```
+log_id
+service
+level
+message
+latency_ms
+anomaly_score
+is_anomaly
+created_at (timestamp)
+```
+#### Aggregates Table
+```
+service
+minute_bucket
+total_logs
+error_count
+avg_latency
+anomaly_count
+```
+
+---
+
+## 7. Dashboard (Next.js + Tailwind)
+### Real-Time Features
+- Live log stream (WebSockets)
+- Error/Warning/Info filtering
+- Service selector
+- Time range selector
+- Anomaly visualization
+- Latency heatmaps
+- Alerts management UI
+
+### Pages
+1. **Home Dashboard** – Summary cards + charts
+2. **Live Logs** – Stream view
+3. **Analytics** – Error graphs, latency charts
+4. **Alerts** – Create/update alert conditions
+5. **Auth** – Admin login
+
+---
+
+## 8. Alerting Engine
+Triggered when:
+- Error rate spikes
+- Latency crosses threshold
+- ML flags anomalies above tolerance
+
+### Integrations
+- Slack API
+- Email (SMTP)
+
+### Example Slack Alert
+```
+🚨 InsightHub Alert: Payment Service ERROR SPIKE
+Errors/min: 80 (Normal: 2)
+Start Time: 10:32 AM UTC
+Potential Cause: Stripe Timeout
+```
+
+---
+
+# 📡 API Specifications
+## 1. Ingestion API
+`POST /api/logs`
+```json
+{
+  "service": "auth-service",
+  "level": "INFO",
+  "message": "User logged in",
+  "latency_ms": 120
+}
+```
+Response:
+```json
+{"status": "queued"}
+```
+
+## 2. Query Logs
+`GET /api/logs?service=payment-service&level=error&limit=50`
+
+## 3. Realtime Websocket Stream
+`GET /ws/logs`
+
+---
+
+# 🧪 ML Pipeline Detailed Explanation
+### Feature Extraction
+- Latency (ms)
+- Log frequency (sliding window)
+- Error-type frequency
+- Time-based features
+
+### Model Training
+```python
+from sklearn.ensemble import IsolationForest
+model = IsolationForest(contamination=0.02)
+model.fit(X_train)
+```
+
+### Real-time scoring flow
+```
+log -> processor -> extract features -> model.predict -> add anomaly_score
+```
+---
+
+# 🛠️ Technology Stack
+## Backend
+- Node.js / Express or Go
+- Python (ML)
+- Kafka or RabbitMQ
+- TimescaleDB or MongoDB
+
+## Frontend
+- Next.js
+- TailwindCSS
+- Recharts / D3.js
+- WebSockets
+
+## DevOps
+- Docker + Docker Compose
+- GitHub Actions
+- Nginx
+
+---
+
+# 🏗️ System Design (Deep Dive)
+
+## 1. Scalability
+- Horizontal scaling of ingestion servers
+- Kafka partitions for parallel consumption
+- Stream processor auto-scaling
+- Sharded databases for high load
+
+## 2. Fault Tolerance
+- Retry queues
+- Circuit breaker for Slack/email alerts
+- Heartbeat monitoring for processors
+
+## 3. Security
+- Service tokens for ingestion
+- JWT for dashboard auth
+- RBAC roles: admin, viewer
+
+## 4. Performance Considerations
+- Batched writes into DB
+- Indexing on timestamps & service
+- Async writes with back-pressure
+
+---
+
+# 📂 Folder Structure
+```
+insighthub/
+ ├── ingestion-service/
+ ├── processor-service/
+ ├── ml-engine/
+ ├── dashboard/
+ ├── queue/
+ ├── database/
+ ├── sdk-js/
+ ├── sdk-python/
+ └── docker-compose.yml
+```
+
+---
+
+# 🚀 Setup Instructions
+## 1. Clone the repo
+```
+git clone https://github.com/yourname/insighthub.git
+cd insighthub
+```
+## 2. Start services
+```
+docker-compose up --build
+```
+## 3. Open dashboard
+```
+http://localhost:3000
+```
+## 4. Send test log
+```
+curl -X POST http://localhost:8000/api/logs \
+  -H "Content-Type: application/json" \
+  -d '{"service":"demo","level":"INFO","message":"hi"}'
+```
+
+---
+
+# 🤝 Contributing
+- Fork repo
+- Use feature branches
+- Run tests before PR
+
+---
+
+# 📜 License
+MIT
+
+---
+
+# 🎉 Final Notes
+InsightHub demonstrates skills in:
+- Distributed systems
+- Real-time data pipelines
+- ML engineering
+- Full-stack dashboards
+- DevOps
+
+This project significantly showcases your capability as an SDE.
