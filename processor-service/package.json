@@ -1,0 +1,14 @@
+{
+  "name": "insighthub-processor",
+  "version": "1.0.0",
+  "description": "Stream processor for InsightHub",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "pg": "^8.11.3",
+    "dotenv": "^16.3.1"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+.env
+.next/
+dist/
+build/
+*.log
+__pycache__/
+*.pyc
+.DS_Store
+can-be-deleted/
+*.pkl
