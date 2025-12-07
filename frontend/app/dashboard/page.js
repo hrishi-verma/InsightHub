@@ -19,28 +19,68 @@ export default function DashboardPage() {
   }, []);
 
   const fetchStats = async () => {
-    // TODO: Replace with actual API calls
-    setStats({
-      totalLogs: Math.floor(Math.random() * 10000),
-      errors: Math.floor(Math.random() * 500),
-      anomalies: Math.floor(Math.random() * 50)
-    });
+    try {
+      // Always use dev-token-123 for now
+      const token = 'dev-token-123';
+      const apiUrl = 'http://localhost:8000';
+      
+      console.log('Fetching stats from:', apiUrl);
+      console.log('Using token:', token);
+      
+      // Fetch stats
+      const statsRes = await fetch(`${apiUrl}/api/logs/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!statsRes.ok) {
+        throw new Error(`Stats API failed: ${statsRes.status}`);
+      }
+      
+      const statsData = await statsRes.json();
+      console.log('Stats data:', statsData);
+      
+      setStats({
+        totalLogs: parseInt(statsData.total_logs) || 0,
+        errors: parseInt(statsData.errors) || 0,
+        anomalies: parseInt(statsData.anomalies) || 0
+      });
 
-    setErrorData([
-      { time: '10:00', errors: 12 },
-      { time: '11:00', errors: 19 },
-      { time: '12:00', errors: 8 },
-      { time: '13:00', errors: 25 },
-      { time: '14:00', errors: 15 },
-      { time: '15:00', errors: 22 }
-    ]);
+      // Fetch errors over time
+      const errorsRes = await fetch(`${apiUrl}/api/logs/errors-over-time`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (errorsRes.ok) {
+        const errorsData = await errorsRes.json();
+        console.log('Errors data:', errorsData);
+        
+        if (errorsData.data && errorsData.data.length > 0) {
+          setErrorData(errorsData.data.map(d => ({
+            time: new Date(d.time).toLocaleTimeString(),
+            errors: parseInt(d.errors)
+          })));
+        }
+      }
 
-    setLatencyData([
-      { service: 'Auth', latency: 120 },
-      { service: 'Payment', latency: 450 },
-      { service: 'API', latency: 200 },
-      { service: 'Database', latency: 80 }
-    ]);
+      // Fetch latency by service
+      const latencyRes = await fetch(`${apiUrl}/api/logs/latency-by-service`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (latencyRes.ok) {
+        const latencyData = await latencyRes.json();
+        console.log('Latency data:', latencyData);
+        
+        if (latencyData.data && latencyData.data.length > 0) {
+          setLatencyData(latencyData.data.map(d => ({
+            service: d.service,
+            latency: Math.round(parseFloat(d.latency))
+          })));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
   };
 
   return (
@@ -86,18 +126,32 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h2 className="text-xl font-bold mb-4">Average Latency by Service</h2>
+          <h2 className="text-xl font-bold mb-4">Average Latency by Service (Top 10)</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={latencyData}>
+            <BarChart data={latencyData.slice(0, 10)}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="service" stroke="#9CA3AF" />
+              <XAxis 
+                dataKey="service" 
+                stroke="#9CA3AF"
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval={0}
+                tick={{ fontSize: 12 }}
+              />
               <YAxis stroke="#9CA3AF" />
               <Tooltip 
                 contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
                 labelStyle={{ color: '#F3F4F6' }}
+                cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
               />
               <Legend />
-              <Bar dataKey="latency" fill="#3B82F6" />
+              <Bar 
+                dataKey="latency" 
+                fill="#3B82F6" 
+                radius={[4, 4, 0, 0]}
+                activeBar={{ fill: '#60A5FA' }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -13,14 +13,40 @@ export default function LiveLogsPage() {
   const logsEndRef = useRef(null);
 
   useEffect(() => {
-    // Simulate real-time logs
-    const interval = setInterval(() => {
-      const newLog = generateMockLog();
-      setLogs(prev => [newLog, ...prev].slice(0, 100));
-    }, 2000);
-
+    fetchLogs();
+    const interval = setInterval(fetchLogs, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchLogs = async () => {
+    try {
+      const token = 'dev-token-123';
+      const apiUrl = 'http://localhost:8000';
+      
+      const response = await fetch(`${apiUrl}/api/logs?limit=50`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Logs API failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.logs && data.logs.length > 0) {
+        setLogs(data.logs.map(log => ({
+          id: log.log_id,
+          service: log.service,
+          level: log.level,
+          message: log.message,
+          timestamp: log.created_at,
+          latency_ms: log.latency_ms || 0
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+    }
+  };
 
   useEffect(() => {
     if (autoScroll && logsEndRef.current) {

@@ -1,13 +1,14 @@
 -- Create logs table
 CREATE TABLE IF NOT EXISTS logs (
-    log_id BIGSERIAL PRIMARY KEY,
-    service VARCHAR(255) NOT NULL,
-    level VARCHAR(50) NOT NULL,
+    log_id BIGSERIAL,
+    service TEXT NOT NULL,
+    level TEXT NOT NULL,
     message TEXT NOT NULL,
     latency_ms INTEGER,
     anomaly_score FLOAT DEFAULT 0,
     is_anomaly BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (log_id, created_at)
 );
 
 -- Create hypertable for time-series optimization
@@ -21,13 +22,14 @@ CREATE INDEX IF NOT EXISTS idx_logs_is_anomaly ON logs(is_anomaly) WHERE is_anom
 
 -- Create aggregates table
 CREATE TABLE IF NOT EXISTS log_aggregates (
-    id BIGSERIAL PRIMARY KEY,
-    service VARCHAR(255) NOT NULL,
+    id BIGSERIAL,
+    service TEXT NOT NULL,
     minute_bucket TIMESTAMPTZ NOT NULL,
     total_logs INTEGER DEFAULT 0,
     error_count INTEGER DEFAULT 0,
     avg_latency FLOAT DEFAULT 0,
-    anomaly_count INTEGER DEFAULT 0
+    anomaly_count INTEGER DEFAULT 0,
+    PRIMARY KEY (id, minute_bucket)
 );
 
 SELECT create_hypertable('log_aggregates', 'minute_bucket', if_not_exists => TRUE);
