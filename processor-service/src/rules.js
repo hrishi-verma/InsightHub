@@ -24,14 +24,15 @@ async function checkSpike(client, issueId, occurredAt, r) {
   );
   if (cooling.rowCount > 0) return null;
 
-  // Window ends at the event's time (clamped to now) so late events are judged in their own window.
+  // Window ends now, or at the event's time if the sender's clock runs ahead of the DB's, so the
+  // event being processed is always inside it. A replayed backlog of old events can't fake a spike.
   const recentCap = 1000000;
   const { rows: [{ ref, recent }] } = await client.query(
     `SELECT ref, (SELECT count(*) FROM (
         SELECT 1 FROM error_events
         WHERE issue_id = $1 AND occurred_at > ref - make_interval(mins => $3) AND occurred_at <= ref
         LIMIT $4) s)::int AS recent
-     FROM (SELECT LEAST($2::timestamptz, now()) AS ref) t`,
+     FROM (SELECT GREATEST($2::timestamptz, now()) AS ref) t`,
     [issueId, occurredAt, r.spikeWindowMinutes, recentCap],
   );
   if (recent < r.spikeMinCount) return null;

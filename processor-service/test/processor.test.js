@@ -183,6 +183,13 @@ describe('alert rules', () => {
     expect(spike.details).toMatchObject({ count: 6, baseline_avg: 3, threshold: 6 });
   });
 
+  it('does not raise a spike for a replayed backlog of old events', async () => {
+    const p = processor();
+    const old = new Date(Date.now() - 2 * 3600000).toISOString();
+    for (let i = 0; i < 12; i++) await p(kafkaMessage(projectId, makeEvent({ occurred_at: old })));
+    expect(await alertKinds()).toEqual(['new_issue']);
+  });
+
   it('reads spike thresholds from config', async () => {
     const p = processor({ rules: { spikeMinCount: 2 } });
     await p(kafkaMessage(projectId, makeEvent()));

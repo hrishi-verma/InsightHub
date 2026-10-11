@@ -32,6 +32,7 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
 
   async function storeOnce(msg, desc, ml) {
     const client = await pool.connect();
+    let broken = false;
     try {
       await client.query('BEGIN');
       const issue = await upsertIssue(client, msg.project_id, msg.event, desc);
@@ -45,10 +46,12 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
       await client.query('COMMIT');
       return { status: 'stored', issueId: issue.id, alerts };
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
+      // A connection-level failure means this client is unusable; destroy it instead of pooling it.
+      broken = isTransient(err);
+      await client.query('ROLLBACK').catch(() => { broken = true; });
       throw err;
     } finally {
-      client.release();
+      client.release(broken);
     }
   }
 
