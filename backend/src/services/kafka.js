@@ -29,6 +29,7 @@ function createPublisher(kafka, producerOptions = {}) {
   const producer = kafka.producer(producerOptions);
   let connected = false;
   let connecting = null;
+  let disconnecting = Promise.resolve();
 
   producer.on(producer.events.DISCONNECT, () => {
     connected = false;
@@ -37,7 +38,8 @@ function createPublisher(kafka, producerOptions = {}) {
   async function connect() {
     if (connected) return;
     if (!connecting) {
-      connecting = withTimeout(producer.connect(), CONNECT_TIMEOUT_MS, 'kafka connect')
+      // Don't reconnect while a teardown from a failed send is still running.
+      connecting = withTimeout(disconnecting.then(() => producer.connect()), CONNECT_TIMEOUT_MS, 'kafka connect')
         .then(() => {
           connected = true;
         })
@@ -55,7 +57,7 @@ function createPublisher(kafka, producerOptions = {}) {
     } catch (err) {
       // Force a fresh connection next time; the old one may be half-broken.
       connected = false;
-      producer.disconnect().catch(() => {});
+      disconnecting = producer.disconnect().catch(() => {});
       throw err;
     }
   }

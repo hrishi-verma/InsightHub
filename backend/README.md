@@ -1,306 +1,93 @@
-# InsightHub Backend - Ingestion Service
+# InsightHub backend
 
-The backend ingestion service is responsible for receiving logs from client applications, validating them, and publishing them to Kafka for processing.
+The API service. It does three jobs:
 
-## Architecture
+1. **Error ingestion:** `POST /api/v1/events` takes error reports from websites and servers,
+   checks and scrubs them, and puts them on the Kafka topic `error-events`.
+2. **Dashboard API:** login plus read and triage endpoints under `/api/v1` for the dashboard.
+3. **Legacy logs:** the old `/api/logs` endpoints, kept working unchanged.
 
-```
-Client → Authentication → Validation → Kafka → Processor → Database
-```
+The exact request and response formats are in [`docs/CONTRACT.md`](../docs/CONTRACT.md) (sections 1, 2, 4 and 5).
+This README covers how to run and operate the service.
 
-## Features
-
-- ✅ RESTful API for log ingestion
-- ✅ JWT/Token-based authentication
-- ✅ JSON schema validation with Joi
-- ✅ Rate limiting (1000 requests/minute)
-- ✅ Kafka message queue integration
-- ✅ CORS enabled for frontend access
-- ✅ PostgreSQL/TimescaleDB integration for querying
-- ✅ Health check endpoint
-
-## Tech Stack
-
-- **Runtime**: Node.js 18
-- **Framework**: Express.js
-- **Message Queue**: Kafka (via kafkajs)
-- **Database**: PostgreSQL with pg driver
-- **Validation**: Joi
-- **Rate Limiting**: express-rate-limit
-
-## API Endpoints
-
-### 1. Ingest Logs
-```http
-POST /api/logs
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "service": "payment-service",
-  "level": "ERROR",
-  "message": "Payment gateway timeout",
-  "latency_ms": 1500,
-  "userId": 12345
-}
-```
-
-**Response:**
-```json
-{
-  "status": "queued"
-}
-```
-
-### 2. Query Logs
-```http
-GET /api/logs?service=payment-service&level=ERROR&limit=50
-Authorization: Bearer <token>
-```
-
-**Response:**
-```json
-{
-  "logs": [
-    {
-      "log_id": "123",
-      "service": "payment-service",
-      "level": "ERROR",
-      "message": "Payment gateway timeout",
-      "latency_ms": 1500,
-      "created_at": "2025-12-03T15:00:00Z"
-    }
-  ]
-}
-```
-
-### 3. Get Statistics
-```http
-GET /api/logs/stats
-Authorization: Bearer <token>
-```
-
-**Response:**
-```json
-{
-  "total_logs": "1234",
-  "errors": "45",
-  "anomalies": "12"
-}
-```
-
-### 4. Error Trends
-```http
-GET /api/logs/errors-over-time
-Authorization: Bearer <token>
-```
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "time": "2025-12-03T14:00:00Z",
-      "errors": "12"
-    }
-  ]
-}
-```
-
-### 5. Latency by Service
-```http
-GET /api/logs/latency-by-service
-Authorization: Bearer <token>
-```
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "service": "payment-service",
-      "latency": "450.5"
-    }
-  ]
-}
-```
-
-### 6. Health Check
-```http
-GET /health
-```
-
-**Response:**
-```json
-{
-  "status": "ok"
-}
-```
-
-## Environment Variables
+## Run it
 
 ```bash
-PORT=8000
-KAFKA_BROKER=kafka:9092
-KAFKA_TOPIC=logs
-SERVICE_TOKEN=dev-token-123
-DB_HOST=postgres
-DB_PORT=5432
-DB_NAME=insighthub
-DB_USER=postgres
-DB_PASSWORD=password
-```
-
-## Log Schema
-
-Required fields:
-- `service` (string): Service name
-- `level` (string): One of INFO, WARN, ERROR, DEBUG
-- `message` (string): Log message
-
-Optional fields:
-- `latency_ms` (number): Request latency in milliseconds
-- `userId` (number): User ID associated with the log
-
-Auto-added fields:
-- `timestamp` (ISO string): Server timestamp when log was received
-
-## Validation Rules
-
-1. **Service**: Required, must be a string
-2. **Level**: Required, must be one of: INFO, WARN, ERROR, DEBUG
-3. **Message**: Required, must be a string
-4. **Latency**: Optional, must be a number
-5. **UserId**: Optional, must be a number
-
-## Rate Limiting
-
-- **Window**: 1 minute
-- **Max Requests**: 1000 per window
-- **Scope**: Per IP address
-
-## Authentication
-
-All API endpoints (except `/health`) require authentication via Bearer token:
-
-```http
-Authorization: Bearer dev-token-123
-```
-
-## Development
-
-### Install Dependencies
-```bash
+cp .env.example .env     # fill in DB_PASSWORD (and SERVICE_TOKEN if you need /api/logs)
 npm install
+npm run dev              # or: npm start
+curl localhost:8000/health
 ```
 
-### Run Locally
+The service checks every setting at startup and **refuses to start** if one is missing or unsafe:
+`DASHBOARD_ORIGINS=*`, `http` origins in production, `TRUST_PROXY=true`, a short `SERVICE_TOKEN`
+and so on. Every variable is explained in [`.env.example`](.env.example).
+
+## Admin scripts
+
 ```bash
-npm run dev
+npm run create-user -- --email you@example.com --role admin      # asks for the password (hidden)
+npm run create-key  -- --project education-enlightened --kind secret
+npm run create-key  -- --project education-enlightened --kind public --origin https://example.com
+npm run revoke-key  -- --prefix ih_pk_abc123
 ```
 
-### Run in Production
+- Keys are printed **once**. Only their SHA-256 hash is stored. Put secret keys (`ih_sk_…`) only
+  on servers. Public keys (`ih_pk_…`) go in browsers and work only from their `--origin`s.
+- `http://localhost` origins are accepted only when `NODE_ENV=development`.
+- There is no public sign-up. Users exist only if `create-user` made them.
+
+## Security behaviour
+
+| Area | What happens |
+| --- | --- |
+| Ingestion auth | Key looked up by SHA-256 hash, compared in constant time. Revoked or unknown → 401 |
+| Browser keys | `Origin` must exactly match the key's allowed origins, else 403. CORS preflight answered only for those origins |
+| Validation | Strict schema: unknown fields → 400, the whole batch is rejected. 1–20 events, 64 KB max |
+| Scrubbing | Emails, credentials, JWTs, long tokens, IPs and URL query strings are replaced before Kafka |
+| Rate limits | Counted in events: 600/min per secret key; 60/min per public key + IP, 600/min per public key. Plus 1200 requests/min per IP overall. IPs are kept in memory only |
+| Dashboard login | bcrypt (cost 12), same message and work for unknown email or wrong password, 10 tries per 15 min per IP + email |
+| Sessions | `ih_session` cookie: 32 random bytes, HttpOnly, SameSite=Strict, Secure in production, 12 h. The DB stores only its hash |
+| CSRF | State-changing requests need an `Origin` from `DASHBOARD_ORIGINS` and `Content-Type: application/json` |
+| Roles | Only admins can change issue status or acknowledge alerts |
+| Responses | `helmet` headers, `Cache-Control: no-store` on `/api/v1`, JSON errors without stack traces |
+| Logs | Method, path, status and duration only. No bodies, query strings, keys, cookies or IPs |
+| Failures | Kafka down → 503 within ~10 s (never hangs). DB down → `/health` returns 503 |
+
+Rate-limit counters are in memory (one process). The store sits behind a small interface
+(`src/services/rateLimitStore.js`) so a Redis store can replace it when running more than one instance.
+
+Behind a reverse proxy, set `TRUST_PROXY` (hop count or proxy addresses). Otherwise every client
+looks like the proxy's IP and shares one per-IP limit.
+
+## Tests
+
 ```bash
-npm start
+npm test
+```
+
+The tests run against the `insighthub_test_api` database, which they clear freely, and use a fake
+Kafka producer. They need `DB_PASSWORD` in `.env`. They cover the security behaviour (rejections,
+limits, scrubbing, auth, CSRF, roles, project scoping) as well as the happy paths.
+
+## Layout
+
+```
+src/
+  index.js           startup, graceful shutdown
+  app.js             Express app (dependencies injected)
+  config/            env validation
+  db/                Postgres pool (timeouts, UTC)
+  lib/               errors, logging, crypto, HTTP helpers
+  middleware/        dashboard CORS/CSRF/session/role checks, legacy token
+  routes/v1/         events (ingestion), auth, dashboard read API
+  routes/logs.js     legacy /api/logs
+  services/          API keys, sessions, Kafka, rate limiting, event schema, scrubbing
+scripts/             create-user, create-key, revoke-key
+test/                vitest + supertest
 ```
 
 ## Docker
 
-### Build
-```bash
-docker build -t insighthub-backend .
-```
-
-### Run
-```bash
-docker run -p 8000:8000 \
-  -e KAFKA_BROKER=kafka:9092 \
-  -e SERVICE_TOKEN=dev-token-123 \
-  insighthub-backend
-```
-
-## Project Structure
-
-```
-backend/
-├── src/
-│   ├── index.js              # Main application entry
-│   ├── routes/
-│   │   └── logs.js           # Log routes and handlers
-│   ├── middleware/
-│   │   ├── auth.js           # Authentication middleware
-│   │   └── validation.js     # Request validation
-│   └── services/
-│       └── kafka.js          # Kafka producer service
-├── package.json
-├── Dockerfile
-└── .env.example
-```
-
-## Error Handling
-
-### 400 Bad Request
-Invalid log format or missing required fields
-
-### 401 Unauthorized
-Missing or invalid authentication token
-
-### 500 Internal Server Error
-Failed to publish to Kafka or database error
-
-## Testing
-
-### Send Test Log
-```bash
-curl -X POST http://localhost:8000/api/logs \
-  -H "Authorization: Bearer dev-token-123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "test-service",
-    "level": "INFO",
-    "message": "Test log message",
-    "latency_ms": 120
-  }'
-```
-
-### Query Logs
-```bash
-curl -H "Authorization: Bearer dev-token-123" \
-  "http://localhost:8000/api/logs?limit=10"
-```
-
-## Performance Considerations
-
-- Kafka producer connection is reused across requests
-- Database connection pooling enabled
-- Rate limiting prevents abuse
-- CORS enabled for frontend integration
-- Async/await for non-blocking operations
-
-## Monitoring
-
-Check service health:
-```bash
-curl http://localhost:8000/health
-```
-
-View logs:
-```bash
-docker logs insighthub-backend-1
-```
-
-## Troubleshooting
-
-### Kafka Connection Issues
-- Ensure Kafka is running: `docker ps | grep kafka`
-- Check Kafka broker address in environment variables
-- Verify network connectivity between containers
-
-### Database Connection Issues
-- Ensure PostgreSQL is running
-- Verify database credentials
-- Check if database `insighthub` exists
-
-### Authentication Failures
-- Verify SERVICE_TOKEN environment variable matches client token
-- Check Authorization header format: `Bearer <token>`
+`docker build -t insighthub-backend .` builds an image that runs as the unprivileged `node` user,
+with production dependencies only and `NODE_ENV=production`. All config comes from env vars.
