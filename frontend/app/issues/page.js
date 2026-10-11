@@ -30,7 +30,8 @@ function IssuesView() {
   const { project } = useAuth();
 
   const filters = {
-    status: pick(params, 'status', 'unresolved'),
+    // Default view is unresolved; "any" is the explicit marker for no status filter.
+    status: params.get('status') === 'any' ? '' : pick(params, 'status', 'unresolved'),
     source: pick(params, 'source', ''),
     environment: pick(params, 'environment', ''),
     sort: pick(params, 'sort', 'last_seen'),
@@ -49,7 +50,6 @@ function IssuesView() {
   const setFilter = useCallback((key, value) => {
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value); else next.delete(key);
-    // "Any status" needs an explicit marker, since the default is unresolved.
     if (key === 'status' && !value) next.set('status', 'any');
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   }, [params, pathname, router]);
@@ -82,7 +82,6 @@ function IssuesView() {
 
   useEffect(() => { load(false); }, [load]);
 
-  const statusValue = params.get('status') === 'any' ? '' : filters.status;
   const filtered = filters.q || filters.source || filters.environment || filters.status !== 'unresolved';
 
   return (
@@ -99,7 +98,7 @@ function IssuesView() {
           <div key={key}>
             <label htmlFor={`f-${key}`} className="label">{LABELS[key]}</label>
             <select id={`f-${key}`} className="input"
-              value={key === 'status' ? statusValue : filters[key]}
+              value={filters[key]}
               onChange={(e) => setFilter(key, e.target.value)}>
               {OPTIONS[key].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>

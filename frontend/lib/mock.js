@@ -164,8 +164,9 @@ function eventsFor(issue) {
   const count = Math.min(issue.event_count, 45);
   const last = Date.parse(issue.last_seen);
   const events = [];
+  let occurred = last;
   for (let n = 0; n < count; n++) {
-    const occurred = last - n * Math.floor(5 + r() * 90) * 60 * 1000;
+    if (n > 0) occurred -= Math.floor(5 + r() * 90) * 60 * 1000;
     const id = `${issue.id.toString(16).padStart(8, '0')}-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
     const fn = issue.culprit.split(' ')[0];
     const file = (/\((.*)\)/.exec(issue.culprit) || [, 'src/index.js'])[1];
