@@ -1,56 +1,89 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import { useAuth } from './AuthProvider.js';
+import { errorMessage } from '../lib/api.js';
+
+const NAV_ITEMS = [
+  { name: 'Overview', path: '/dashboard' },
+  { name: 'Issues', path: '/issues' },
+  { name: 'Alerts', path: '/alerts' },
+];
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { user, projects, project, setProject, logout } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState(null);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/login');
+  const handleLogout = async () => {
+    setBusy(true);
+    setLogoutError(null);
+    try {
+      await logout();
+    } catch (e) {
+      setLogoutError(errorMessage(e));
+      setBusy(false);
+    }
   };
 
-  const navItems = [
-    { name: 'Dashboard', path: '/dashboard' },
-    { name: 'Live Logs', path: '/logs' },
-    { name: 'Analytics', path: '/analytics' },
-    { name: 'Alerts', path: '/alerts' }
-  ];
-
   return (
-    <nav className="bg-gray-800 border-b border-gray-700">
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-blue-500">
-            InsightHub
-          </Link>
-          
-          <div className="flex space-x-1">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                href={item.path}
-                className={`px-4 py-2 rounded transition ${
-                  pathname === item.path
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </div>
+    <nav className="border-b border-gray-700 bg-gray-800" aria-label="Main">
+      <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <Link href="/dashboard" className="focus-ring rounded text-xl font-bold text-blue-400">
+          InsightHub
+        </Link>
 
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded transition"
-          >
-            Logout
+        <ul className="flex flex-wrap gap-1">
+          {NAV_ITEMS.map((item) => {
+            const active = pathname === item.path || pathname.startsWith(`${item.path}/`);
+            return (
+              <li key={item.path}>
+                <Link
+                  href={item.path}
+                  aria-current={active ? 'page' : undefined}
+                  className={`focus-ring block rounded px-3 py-2 text-sm transition ${
+                    active ? 'bg-blue-600 text-white' : 'text-gray-200 hover:bg-gray-700'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <span>Project</span>
+            <select
+              className="input w-auto py-1.5"
+              value={project ?? ''}
+              onChange={(e) => setProject(e.target.value)}
+              disabled={projects.length < 2}
+            >
+              {projects.map((p) => (
+                <option key={p.slug} value={p.slug}>{p.name}</option>
+              ))}
+            </select>
+          </label>
+          {user && (
+            <span className="hidden text-sm text-gray-300 md:inline" title={user.email}>
+              {user.email} <span className="text-gray-400">({user.role})</span>
+            </span>
+          )}
+          <button type="button" onClick={handleLogout} disabled={busy} className="btn-secondary">
+            {busy ? 'Signing out…' : 'Sign out'}
           </button>
         </div>
       </div>
+      {logoutError && (
+        <p role="alert" className="container mx-auto px-4 pb-3 text-sm text-red-300 sm:px-6">
+          Sign out failed: {logoutError}
+        </p>
+      )}
     </nav>
   );
 }

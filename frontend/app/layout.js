@@ -1,20 +1,20 @@
-'use client';
-
 import './globals.css';
-import { usePathname } from 'next/navigation';
-import Navbar from '../components/Navbar';
+import { connection } from 'next/server';
+import AppShell from '../components/AppShell.js';
 
-export default function RootLayout({ children }) {
-  const pathname = usePathname();
-  const showNavbar = pathname !== '/login' && pathname !== '/';
+export const metadata = {
+  title: 'InsightHub',
+  description: 'Error tracking dashboard',
+  robots: { index: false, follow: false },
+};
 
+export default async function RootLayout({ children }) {
+  // Render every page per request: the CSP nonce from proxy.js only exists at request time.
+  await connection();
   return (
     <html lang="en">
-      <body className="bg-gray-900 text-white min-h-screen">
-        {showNavbar && <Navbar />}
-        <main className={showNavbar ? 'container mx-auto px-6 py-8' : ''}>
-          {children}
-        </main>
+      <body className="min-h-screen bg-gray-900 text-gray-100">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
