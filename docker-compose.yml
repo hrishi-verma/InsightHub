@@ -43,39 +43,48 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
-      - kafka
-      - postgres
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      TRUST_PROXY: "false"
       KAFKA_BROKER: kafka:9092
-      SERVICE_TOKEN: dev-token-123
+      DASHBOARD_ORIGINS: ${DASHBOARD_ORIGINS:-http://localhost:3000}
+      # Legacy /api/logs only. Unset = those routes answer 503.
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-}
       DB_HOST: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
 
   processor:
     build: ./processor-service
     depends_on:
-      - kafka
-      - postgres
-      - ml-engine
+      kafka:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
       KAFKA_BROKER: kafka:9092
       DB_HOST: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       ML_ENGINE_URL: http://ml-engine:5000
+      # Shadow scoring only; never affects alerts (CLAUDE.md rule 5).
+      ML_SHADOW: ${ML_SHADOW:-off}
 
   ml-engine:
     build: ./ml-engine
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     volumes:
       - ml-models:/app/models
 
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
 

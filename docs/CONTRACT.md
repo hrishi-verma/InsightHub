@@ -97,7 +97,7 @@ Senders scrub too, but the backend applies this to `message`, `stack` and tag va
 - email addresses → `[email]`
 - `Bearer …` / `Basic …` credentials → `[credential]`
 - JWT-looking strings (`xxx.yyy.zzz` base64url) → `[jwt]`
-- runs of ≥ 24 characters from `[A-Za-z0-9_-]` that contain **both a letter and a digit** → `[token]`
+- runs of ≥ 24 characters from `[A-Za-z0-9_-]` that are **all hex, or contain both a letter and a digit** → `[token]`
   (so long identifiers like `PrismaClientKnownRequestError` survive; amended 2026-10-11)
 - IPv4/IPv6 addresses → `[ip]`
 - query strings and fragments inside URLs → removed (`https://a.com/x?y=1` → `https://a.com/x`)
@@ -197,6 +197,9 @@ message for unknown email and wrong password.
 - `/overview`: `top_issues` = top 5 by events within the `hours` window, any status. `new_issues` =
   `first_seen` within the window. `open_alerts` = all unacknowledged (no window).
 - Issue and alert `id`s are JSON integers.
+- `/issues/:id`, `/issues/:id/events`, `PATCH /issues/:id` and `POST /alerts/:id/ack` accept an optional `?project=<slug>`; a mismatch is 404.
+- `/alerts` returns at most 200 alerts, newest first (no cursor yet).
+- The scrubber also applies to `url_path`. `http` on a `browser` event is rejected (400). Sending both key headers is 401.
 - In production the dashboard and API must share a registrable domain over https (the cookie is `SameSite=Strict`).
 
 `user` = `{ id, email, role }`. `Issue` = `{ id, project, fingerprint, source, error_type, title,
