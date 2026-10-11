@@ -243,8 +243,13 @@ function route(method, path, query, body) {
       unresolved_issues: issues.filter((i) => i.status === 'unresolved').length,
       open_alerts: alerts.filter((a) => !a.acknowledged_at).length,
       hourly,
-      top_issues: [...issues].filter((i) => i.status === 'unresolved')
-        .sort((a, b) => b.event_count - a.event_count).slice(0, 5).map(publicIssue),
+      // Contract: top 5 by events inside the window, any status.
+      top_issues: issues
+        .map((i) => ({ i, n: hourlyFor([i], hours).reduce((s, h) => s + h.browser + h.server, 0) }))
+        .filter((x) => x.n > 0)
+        .sort((a, b) => b.n - a.n)
+        .slice(0, 5)
+        .map((x) => publicIssue(x.i)),
     };
   }
 

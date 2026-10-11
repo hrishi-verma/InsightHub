@@ -79,7 +79,7 @@ export default function OverviewPage() {
               <section className="card p-5" aria-labelledby="top-issues">
                 <h2 id="top-issues" className="mb-3 text-lg font-bold">Top issues</h2>
                 {top.length === 0 ? (
-                  <p className="text-gray-300">No unresolved issues.</p>
+                  <p className="text-gray-300">No issues in this time range.</p>
                 ) : (
                   <ol className="divide-y divide-gray-700">
                     {top.map((issue) => (
