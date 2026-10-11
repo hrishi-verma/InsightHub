@@ -73,7 +73,11 @@ async function applyRules(client, { projectId, issue, event }, rulesConfig) {
   if (issue.created) {
     alerts.push(await raise(client, projectId, issue.id, 'new_issue', { event_id: event.event_id }));
   }
-  if (issue.status === 'resolved') {
+  // Only an error that happened after the fix counts as coming back; one that happened before
+  // it but was delivered late (e.g. a Kafka backlog) is stored and counted silently.
+  const happenedAfterResolve =
+    !issue.resolved_at || new Date(event.occurred_at) > new Date(issue.resolved_at);
+  if (issue.status === 'resolved' && happenedAfterResolve) {
     await client.query(
       `UPDATE issues SET status = 'unresolved', resolved_at = NULL WHERE id = $1`,
       [issue.id],

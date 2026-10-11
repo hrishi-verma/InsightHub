@@ -124,13 +124,25 @@ describe('alert rules', () => {
   it('raises regression for a resolved issue and flips it back to unresolved', async () => {
     const p = processor();
     const { issueId } = await p(kafkaMessage(projectId, makeEvent()));
-    await pool.query(`UPDATE issues SET status = 'resolved', resolved_at = now() WHERE id = $1`, [issueId]);
+    await pool.query(`UPDATE issues SET status = 'resolved', resolved_at = now() - interval '1 minute' WHERE id = $1`, [issueId]);
     await p(kafkaMessage(projectId, makeEvent({ release: 'fix2' })));
     const issue = await one('SELECT status, resolved_at FROM issues WHERE id = $1', [issueId]);
     expect(issue).toEqual({ status: 'unresolved', resolved_at: null });
     expect(await alertKinds()).toEqual(['new_issue', 'regression']);
     const reg = await one(`SELECT details FROM issue_alerts WHERE kind = 'regression'`);
     expect(reg.details.release).toBe('fix2');
+  });
+
+  it('a late event that happened before the resolve is counted but is not a regression', async () => {
+    const p = processor();
+    const { issueId } = await p(kafkaMessage(projectId, makeEvent()));
+    await pool.query(`UPDATE issues SET status = 'resolved', resolved_at = now() WHERE id = $1`, [issueId]);
+    const before = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    await p(kafkaMessage(projectId, makeEvent({ occurred_at: before })));
+    const issue = await one('SELECT status, event_count FROM issues WHERE id = $1', [issueId]);
+    expect(issue.status).toBe('resolved');
+    expect(Number(issue.event_count)).toBe(2);
+    expect(await alertKinds()).toEqual(['new_issue']);
   });
 
   it('ignored issues store and count events but raise nothing (not even a spike)', async () => {
