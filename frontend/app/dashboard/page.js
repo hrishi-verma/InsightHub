@@ -1,161 +1,110 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { api } from '../../lib/api.js';
+import { useApi } from '../../lib/useApi.js';
+import { formatNumber, timeAgo } from '../../lib/format.js';
+import { useAuth } from '../../components/AuthProvider.js';
+import HourlyChart from '../../components/HourlyChart.js';
+import { Empty, ErrorState, Loading, PageHeader, SourceBadge, StatusBadge } from '../../components/ui.js';
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    totalLogs: 0,
-    errors: 0,
-    anomalies: 0
-  });
-  const [errorData, setErrorData] = useState([]);
-  const [latencyData, setLatencyData] = useState([]);
+const RANGES = [
+  { hours: 24, label: 'Last 24 hours' },
+  { hours: 72, label: 'Last 3 days' },
+  { hours: 168, label: 'Last 7 days' },
+];
+const REFRESH_MS = 60000;
+
+function Stat({ label, value, href, tone = 'text-gray-100' }) {
+  const body = (
+    <>
+      <p className="text-sm uppercase tracking-wide text-gray-300">{label}</p>
+      <p className={`mt-2 text-3xl font-bold tabular-nums ${tone}`}>{formatNumber(value)}</p>
+    </>
+  );
+  return href
+    ? <Link href={href} className="card focus-ring block p-5 hover:border-gray-500">{body}</Link>
+    : <div className="card p-5">{body}</div>;
+}
+
+export default function OverviewPage() {
+  const { project } = useAuth();
+  const [hours, setHours] = useState(24);
+  const { data, error, loading, reload } = useApi(() => api.overview(project, hours), [project, hours]);
 
   useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const t = setInterval(() => { if (!document.hidden) reload(); }, REFRESH_MS);
+    return () => clearInterval(t);
+  }, [reload]);
 
-  const fetchStats = async () => {
-    try {
-      // Always use dev-token-123 for now
-      const token = 'dev-token-123';
-      const apiUrl = 'http://localhost:8000';
-      
-      console.log('Fetching stats from:', apiUrl);
-      console.log('Using token:', token);
-      
-      // Fetch stats
-      const statsRes = await fetch(`${apiUrl}/api/logs/stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!statsRes.ok) {
-        throw new Error(`Stats API failed: ${statsRes.status}`);
-      }
-      
-      const statsData = await statsRes.json();
-      console.log('Stats data:', statsData);
-      
-      setStats({
-        totalLogs: parseInt(statsData.total_logs) || 0,
-        errors: parseInt(statsData.errors) || 0,
-        anomalies: parseInt(statsData.anomalies) || 0
-      });
-
-      // Fetch errors over time
-      const errorsRes = await fetch(`${apiUrl}/api/logs/errors-over-time`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (errorsRes.ok) {
-        const errorsData = await errorsRes.json();
-        console.log('Errors data:', errorsData);
-        
-        if (errorsData.data && errorsData.data.length > 0) {
-          setErrorData(errorsData.data.map(d => ({
-            time: new Date(d.time).toLocaleTimeString(),
-            errors: parseInt(d.errors)
-          })));
-        }
-      }
-
-      // Fetch latency by service
-      const latencyRes = await fetch(`${apiUrl}/api/logs/latency-by-service`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (latencyRes.ok) {
-        const latencyData = await latencyRes.json();
-        console.log('Latency data:', latencyData);
-        
-        if (latencyData.data && latencyData.data.length > 0) {
-          setLatencyData(latencyData.data.map(d => ({
-            service: d.service,
-            latency: Math.round(parseFloat(d.latency))
-          })));
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
+  const hourly = Array.isArray(data?.hourly) ? data.hourly : [];
+  const top = Array.isArray(data?.top_issues) ? data.top_issues : [];
+  const rangeLabel = RANGES.find((r) => r.hours === hours)?.label.toLowerCase();
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard Overview</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h3 className="text-gray-400 text-sm uppercase">Total Logs</h3>
-          <p className="text-4xl font-bold mt-2">{stats.totalLogs.toLocaleString()}</p>
-          <p className="text-green-500 text-sm mt-2">↑ 12% from last hour</p>
-        </div>
-        
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h3 className="text-gray-400 text-sm uppercase">Errors</h3>
-          <p className="text-4xl font-bold mt-2 text-red-500">{stats.errors}</p>
-          <p className="text-red-500 text-sm mt-2">↑ 8% from last hour</p>
-        </div>
-        
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h3 className="text-gray-400 text-sm uppercase">Anomalies</h3>
-          <p className="text-4xl font-bold mt-2 text-yellow-500">{stats.anomalies}</p>
-          <p className="text-yellow-500 text-sm mt-2">↓ 3% from last hour</p>
-        </div>
-      </div>
+    <div>
+      <PageHeader title="Overview">
+        <label htmlFor="range" className="sr-only">Time range</label>
+        <select id="range" className="input w-auto" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+          {RANGES.map((r) => <option key={r.hours} value={r.hours}>{r.label}</option>)}
+        </select>
+        <button type="button" className="btn-secondary" onClick={reload} disabled={loading}>Refresh</button>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h2 className="text-xl font-bold mb-4">Errors Over Time</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={errorData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" stroke="#9CA3AF" />
-              <YAxis stroke="#9CA3AF" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                labelStyle={{ color: '#F3F4F6' }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="errors" stroke="#EF4444" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+      {error && <div className="mb-6"><ErrorState error={error} onRetry={reload} /></div>}
+      {!data && loading && <Loading />}
 
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-          <h2 className="text-xl font-bold mb-4">Average Latency by Service (Top 10)</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={latencyData.slice(0, 10)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="service" 
-                stroke="#9CA3AF"
-                angle={-45}
-                textAnchor="end"
-                height={80}
-                interval={0}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis stroke="#9CA3AF" />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
-                labelStyle={{ color: '#F3F4F6' }}
-                cursor={{ fill: 'rgba(59, 130, 246, 0.1)' }}
-              />
-              <Legend />
-              <Bar 
-                dataKey="latency" 
-                fill="#3B82F6" 
-                radius={[4, 4, 0, 0]}
-                activeBar={{ fill: '#60A5FA' }}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+      {data && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat label={`Events (${rangeLabel})`} value={data.events_total} />
+            <Stat label="New issues" value={data.new_issues} href="/issues?sort=first_seen" />
+            <Stat label="Unresolved issues" value={data.unresolved_issues} href="/issues?status=unresolved" tone="text-red-300" />
+            <Stat label="Open alerts" value={data.open_alerts} href="/alerts" tone="text-yellow-300" />
+          </div>
+
+          {Number(data.events_total) === 0 && top.length === 0 ? (
+            <Empty />
+          ) : (
+            <>
+              <div className="card p-5">
+                <HourlyChart
+                  title="Events per hour"
+                  data={hourly}
+                  series={[{ key: 'browser', label: 'Browser' }, { key: 'server', label: 'Server' }]}
+                />
+              </div>
+
+              <section className="card p-5" aria-labelledby="top-issues">
+                <h2 id="top-issues" className="mb-3 text-lg font-bold">Top issues</h2>
+                {top.length === 0 ? (
+                  <p className="text-gray-300">No issues in this time range.</p>
+                ) : (
+                  <ol className="divide-y divide-gray-700">
+                    {top.map((issue) => (
+                      <li key={issue.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/issues/${encodeURIComponent(issue.id)}`} className="focus-ring block break-words rounded font-semibold text-blue-300 hover:underline">
+                            {issue.title}
+                          </Link>
+                          <p className="truncate text-sm text-gray-400">{issue.culprit}</p>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-gray-300">
+                          <SourceBadge source={issue.source} />
+                          <StatusBadge status={issue.status} />
+                          <span className="tabular-nums">{formatNumber(issue.event_count)} events</span>
+                          <span>{timeAgo(issue.last_seen)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
+            </>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

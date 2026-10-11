@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900;
+  }
+  .card {
+    @apply bg-gray-800 rounded-lg border border-gray-700;
+  }
+  .btn {
+    @apply focus-ring inline-flex items-center justify-center rounded px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700;
+  }
+  .btn-secondary {
+    @apply btn bg-gray-700 text-gray-100 hover:bg-gray-600;
+  }
+  .btn-danger {
+    @apply btn bg-red-700 text-white hover:bg-red-800;
+  }
+  .input {
+    @apply focus-ring w-full rounded border border-gray-600 bg-gray-900 px-3 py-2 text-gray-100 placeholder-gray-400;
+  }
+  .label {
+    @apply mb-1 block text-sm font-semibold text-gray-300;
+  }
+}

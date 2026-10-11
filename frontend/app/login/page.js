@@ -1,76 +1,107 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { api, ApiError, errorMessage } from '../../lib/api.js';
+import { safeNextPath } from '../../lib/security.js';
+import { useAuth } from '../../components/AuthProvider.js';
+
+function nextPath() {
+  return safeNextPath(new URLSearchParams(window.location.search).get('next'));
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const { signedIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Already signed in? Skip the form.
+  useEffect(() => {
+    let cancelled = false;
+    api.me().then(() => {
+      if (!cancelled) {
+        signedIn();
+        router.replace(nextPath());
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [router, signedIn]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     setError('');
-
-    // TODO: Replace with actual API call
-    if (formData.email && formData.password) {
-      // Mock JWT token
-      localStorage.setItem('token', 'mock-jwt-token');
-      router.push('/dashboard');
-    } else {
-      setError('Please enter email and password');
+    setSubmitting(true);
+    try {
+      await api.login(email.trim(), password);
+      setPassword('');
+      signedIn();
+      router.replace(nextPath());
+    } catch (err) {
+      setPassword('');
+      // Same message for unknown email and wrong password (contract §4).
+      setError(err instanceof ApiError && err.status === 401 ? 'Incorrect email or password.' : errorMessage(err));
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-gray-800 p-8 rounded-lg border border-gray-700 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center mb-6">InsightHub</h1>
-        <p className="text-gray-400 text-center mb-8">Sign in to your account</p>
-        
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="card w-full max-w-md p-8">
+        <h1 className="mb-2 text-center text-3xl font-bold">InsightHub</h1>
+        <p className="mb-8 text-center text-gray-300">Sign in to your account</p>
+
         {error && (
-          <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded mb-4">
+          <div role="alert" className="mb-4 rounded border border-red-500 bg-red-500/10 px-4 py-3 text-red-200">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-2">Email</label>
+            <label htmlFor="email" className="label">Email</label>
             <input
+              id="email"
+              name="email"
               type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-blue-500"
-              placeholder="admin@insighthub.com"
+              autoComplete="username"
+              required
+              maxLength={254}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input py-3"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2">Password</label>
+            <label htmlFor="password" className="label">Password</label>
             <input
+              id="password"
+              name="password"
               type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-blue-500"
-              placeholder="••••••••"
+              autoComplete="current-password"
+              required
+              maxLength={128}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input py-3"
             />
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded font-semibold transition"
-          >
-            Sign In
+          <button type="submit" disabled={submitting} className="btn-primary w-full py-3">
+            {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
-        <p className="text-gray-400 text-sm text-center mt-6">
-          Demo credentials: admin@insighthub.com / admin123
-        </p>
+        {process.env.NEXT_PUBLIC_USE_MOCKS === 'true' && (
+          <p className="mt-6 text-center text-sm text-yellow-200">
+            Mock mode: any email with a 12+ character password signs in. Emails starting with
+            &quot;viewer&quot; get the viewer role.
+          </p>
+        )}
       </div>
     </div>
   );
