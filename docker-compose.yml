@@ -39,19 +39,31 @@ services:
       - "8000:8000"
     depends_on:
       - kafka
+      - postgres
     environment:
       KAFKA_BROKER: kafka:9092
       SERVICE_TOKEN: dev-token-123
+      DB_HOST: postgres
+      DB_PASSWORD: password
 
   processor:
     build: ./processor-service
     depends_on:
       - kafka
       - postgres
+      - ml-engine
     environment:
       KAFKA_BROKER: kafka:9092
       DB_HOST: postgres
       DB_PASSWORD: password
+      ML_ENGINE_URL: http://ml-engine:5000
+
+  ml-engine:
+    build: ./ml-engine
+    ports:
+      - "5000:5000"
+    volumes:
+      - ml-models:/app/models
 
   frontend:
     build: ./frontend
@@ -62,3 +74,4 @@ services:
 
 volumes:
   postgres_data:
+  ml-models:
