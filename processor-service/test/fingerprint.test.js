@@ -53,6 +53,40 @@ describe('topFrames', () => {
   });
 });
 
+describe('library frames', () => {
+  const prismaStack = (caller) =>
+    [
+      'PrismaClientKnownRequestError: Invalid `prisma.session.findUnique()` invocation in',
+      '    at vn.handleRequestError (/var/task/node_modules/@prisma/client/runtime/library.js:121:7)',
+      '    at vn.request (/var/task/node_modules/@prisma/client/runtime/library.js:121:6)',
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)',
+      `    at ${caller} (/var/task/backend/services/${caller}.js:42:11)`,
+    ].join('\n');
+  const prismaEvent = (caller) => ({
+    error_type: 'PrismaClientKnownRequestError',
+    message: 'Invalid `prisma.session.findUnique()` invocation in',
+    stack: prismaStack(caller),
+  });
+
+  it('skips node_modules and runtime frames', () => {
+    expect(topFrames(prismaStack('getSession')).map((f) => f.fn)).toEqual(['getSession']);
+  });
+
+  it('keeps library frames when there are no in-app frames', () => {
+    const stack = 'Error: x\n    at a (/app/node_modules/lib/a.js:1:1)\n    at node:internal/x:2:2';
+    expect(topFrames(stack)).toHaveLength(2);
+  });
+
+  it('separates the same library error raised from different places in our code', () => {
+    expect(fp(prismaEvent('getSession'))).not.toBe(fp(prismaEvent('register')));
+  });
+
+  it('names our code as the culprit', () => {
+    const { culprit } = describeEvent(1, makeEvent(prismaEvent('getSession')));
+    expect(culprit).toBe('getSession (/var/task/backend/services/getSession.js)');
+  });
+});
+
 describe('fingerprint', () => {
   it('groups the same error with different numbers, IDs and line numbers', () => {
     const a = fp({

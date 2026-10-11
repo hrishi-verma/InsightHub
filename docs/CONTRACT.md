@@ -142,10 +142,12 @@ The legacy `logs` and `log_aggregates` tables stay as they are.
 `project_id | source | error_type | normalized_message | frame1 | frame2 | frame3`, where:
 - `normalized_message`: message with UUIDs → `<uuid>`, numbers → `<n>`, hex runs ≥ 8 → `<hex>`,
   quoted text (`'…'`, `"…"`, `` `…` ``) → `<str>`, whitespace collapsed, lower-cased
-- `frameN`: the first three stack frames as `function@file`, with line/column numbers, query
+- `frameN`: the first three **in-app** stack frames (skipping frames whose file contains
+  `/node_modules/` or starts with `node:` / `internal/`; if none are in-app, the first three of all
+  frames; amended 2026-10-11) as `function@file`, with line/column numbers, query
   strings and build hashes in file names (e.g. `index-a1b2c3d4.js` → `index.js`) removed. Missing frames are empty strings.
 
-`title` = `error_type: message` (first 200 chars). `culprit` = first frame (`function (file)`),
+`title` = `error_type: message` (first 200 chars). `culprit` = first frame from the same in-app selection (`function (file)`),
 else `http.route`, else `url_path`, else empty.
 
 **Storing an event (one transaction):**

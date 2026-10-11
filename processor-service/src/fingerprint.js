@@ -60,15 +60,25 @@ function parseFrame(rawLine) {
   return null;
 }
 
+// Frames from dependencies and the runtime show where an error surfaced (e.g. inside Prisma),
+// not which of our code caused it. Grouping on them would merge unrelated bugs into one issue.
+function isLibraryFrame(file) {
+  return file.includes('/node_modules/') || /^(?:node:|internal\/)/.test(file);
+}
+
+const MAX_FRAMES = 50;
+
+// The first `count` in-app frames; all frames if the stack has no in-app ones.
 function topFrames(stack, count = 3) {
   const frames = [];
   if (!stack) return frames;
   for (const line of stack.split('\n')) {
     const frame = parseFrame(line);
     if (frame) frames.push({ fn: frame.fn, file: normalizeFile(frame.file) });
-    if (frames.length === count) break;
+    if (frames.length === MAX_FRAMES) break;
   }
-  return frames;
+  const inApp = frames.filter((f) => !isLibraryFrame(f.file));
+  return (inApp.length ? inApp : frames).slice(0, count);
 }
 
 function firstChars(s, n) {
@@ -97,4 +107,4 @@ function describe(projectId, event) {
   return { fingerprint, title, culprit: firstChars(culprit, 512) };
 }
 
-module.exports = { describe, normalizeMessage, normalizeFile, topFrames };
+module.exports = { describe, normalizeMessage, normalizeFile, topFrames, isLibraryFrame };
