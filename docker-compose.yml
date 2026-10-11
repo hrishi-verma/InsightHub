@@ -10,8 +10,7 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -25,13 +24,21 @@ services:
   postgres:
     image: timescale/timescaledb:latest-pg15
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: insighthub
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Run once on a fresh database, in name order (after the image's own 000_install_timescaledb.sh).
+      - ./database/init.sql:/docker-entrypoint-initdb.d/100_init.sql:ro
+      - ./database/migrations/001_error_tracking.sql:/docker-entrypoint-initdb.d/101_error_tracking.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d insighthub"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   backend:
     build: ./backend
@@ -44,7 +51,7 @@ services:
       KAFKA_BROKER: kafka:9092
       SERVICE_TOKEN: dev-token-123
       DB_HOST: postgres
-      DB_PASSWORD: password
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
 
   processor:
     build: ./processor-service
@@ -55,7 +62,7 @@ services:
     environment:
       KAFKA_BROKER: kafka:9092
       DB_HOST: postgres
-      DB_PASSWORD: password
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       ML_ENGINE_URL: http://ml-engine:5000
 
   ml-engine:
