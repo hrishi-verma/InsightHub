@@ -1,11 +1,15 @@
 {
   "name": "insighthub-backend",
   "version": "1.0.0",
-  "description": "InsightHub Ingestion Service",
+  "description": "InsightHub API: error ingestion, dashboard API and legacy log ingestion",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "vitest run",
+    "create-user": "node scripts/create-user.js",
+    "create-key": "node scripts/create-key.js",
+    "revoke-key": "node scripts/revoke-key.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -21,5 +25,8 @@
   "devDependencies": {
     "supertest": "^7.3.1",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

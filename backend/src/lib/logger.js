@@ -1,6 +1,9 @@
 // JSON-lines logger. Callers pass only safe fields: never bodies, keys, cookies or IPs.
 
+const silent = process.env.LOG_LEVEL === 'silent';
+
 function write(stream, level, msg, fields) {
+  if (silent) return;
   stream.write(`${JSON.stringify({ time: new Date().toISOString(), level, msg, ...fields })}\n`);
 }
 
