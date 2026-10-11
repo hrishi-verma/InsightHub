@@ -97,7 +97,8 @@ Senders scrub too, but the backend applies this to `message`, `stack` and tag va
 - email addresses → `[email]`
 - `Bearer …` / `Basic …` credentials → `[credential]`
 - JWT-looking strings (`xxx.yyy.zzz` base64url) → `[jwt]`
-- runs of ≥ 24 hex or base64url characters → `[token]`
+- runs of ≥ 24 characters from `[A-Za-z0-9_-]` that contain **both a letter and a digit** → `[token]`
+  (so long identifiers like `PrismaClientKnownRequestError` survive; amended 2026-10-11)
 - IPv4/IPv6 addresses → `[ip]`
 - query strings and fragments inside URLs → removed (`https://a.com/x?y=1` → `https://a.com/x`)
 
@@ -113,6 +114,7 @@ Senders scrub too, but the backend applies this to `message`, `stack` and tag va
 { "schema": 1, "project_id": 1, "received_at": "2026-10-11T09:30:01.120Z", "event": { …validated, scrubbed Event… } }
 ```
 
+If the message key is present it must equal `project_id`, otherwise the message is skipped.
 The processor still validates every message (strict schema). Invalid messages are logged
 (without their content) and skipped, so one bad message never stops the consumer.
 
@@ -153,7 +155,7 @@ else `http.route`, else `url_path`, else empty.
 
 **Alert rules (transparent, configurable via env, these are the defaults):**
 - `new_issue`: the issue was just created.
-- `regression`: an event arrives for a `resolved` issue. Set it back to `unresolved` and clear `resolved_at`.
+- `regression`: an event that **occurred after `resolved_at`** arrives for a `resolved` issue. Set it back to `unresolved` and clear `resolved_at`. A late-delivered event that occurred before the resolve is stored and counted silently.
 - `spike`: events for the issue in the last 5 min ≥ max(10, 5 × its average 5-minute count over
   the previous 24 h). At most one spike alert per issue per hour.
 - `ignored` issues still store events and counts but raise no alerts.
@@ -187,6 +189,15 @@ message for unknown email and wrong password.
 | `PATCH /issues/:id` | **admin** | `{ status: "unresolved" \| "resolved" \| "ignored" }` | `{ issue }` |
 | `GET /alerts?project=<slug>&acknowledged=false` | logged in | | `{ alerts: [{ id, kind, issue: { id, title }, details, created_at, acknowledged_at }] }` |
 | `POST /alerts/:id/ack` | **admin** | `{}` | `{ alert }` |
+
+**Clarifications (2026-10-11):**
+- `POST` requests without a body (`/auth/logout`, `/alerts/:id/ack`) still send `{}` as `application/json`.
+- `/alerts?acknowledged=`: `false` = open, `true` = acknowledged, omitted = all.
+- `/issues?environment=`: issues with at least one event in that environment.
+- `/overview`: `top_issues` = top 5 by events within the `hours` window, any status. `new_issues` =
+  `first_seen` within the window. `open_alerts` = all unacknowledged (no window).
+- Issue and alert `id`s are JSON integers.
+- In production the dashboard and API must share a registrable domain over https (the cookie is `SameSite=Strict`).
 
 `user` = `{ id, email, role }`. `Issue` = `{ id, project, fingerprint, source, error_type, title,
 culprit, status, first_seen, last_seen, event_count, last_release }`. Timestamps are ISO 8601 UTC
