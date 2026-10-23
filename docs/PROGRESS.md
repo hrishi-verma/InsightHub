@@ -115,3 +115,30 @@ resolve and reopen (admin) → sign out → viewer sees no admin buttons → sig
 **Notes:** the browser automation can't type `+` reliably. That's a test-tool quirk, not an app bug: the same
 password logged in fine via curl. Existing rows aren't re-scrubbed, so the old test rows (including the path one)
 get deleted in Phase 5.
+
+## 2026-10-23 — Phase 4: Education Enlightened reporter
+The reporter already existed: built and merged in `Sahaj Yoga/Education enlightened` on 2026-10-11
+(`6c69640`, Education Enlightened D71/D72; report `docs/insighthub-integration-report.md` there). My earlier
+"not started" was wrong: I had looked in an unrelated repo.
+
+**Brought it up to today's contract**, in worktree `.worktrees/insighthub-hardening`, branch
+`feature/insighthub-hardening`, commit `a84219e` (not merged):
+- Home-directory scrubbing in both reporters (D23 here, Education Enlightened D75).
+- **ReDoS:** the email, URL-with-query and bare-path patterns were quadratic, up to 235 ms per 16 KB. On the API
+  that blocks the event loop. Bounded; worst case 15 ms. Timing tests added.
+- The server reporter's header test already pins exactly `Content-Type` + `Authorization`, so it never sends `Origin`.
+
+**Security check — found and fixed in InsightHub:** the same URL-rule problem in
+`backend/src/services/scrub.js` (332 ms per 64 KB of repeated `wss://`) → bounded to 2048 chars, now 43 ms.
+Timing tests extended.
+
+**Checked by:**
+- Education Enlightened: `npm run lint` ✓, `format:check` ✓, `build` ✓, `npx vitest run` → 67 passed;
+  `backend: npm run typecheck` ✓, `npm test` → 63 passed, 51 skipped (DB tests; its Postgres isn't started, as the brief says).
+- InsightHub `backend: npm test` → 117 passed.
+- A throwaway fuzz of 33 hostile inputs on both reporters → worst 15 ms per 16 KB.
+
+**Follow-ups:**
+- Owner merges the Education Enlightened branch.
+- Low-risk scrub gaps: %-encoded text inside messages isn't decoded; the IPv4 rule matches 4-part versions.
+- Education Enlightened hosting corrected (D25).

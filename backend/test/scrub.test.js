@@ -31,7 +31,7 @@ describe('scrub', () => {
   });
 
   // ReDoS guard: the old email pattern was quadratic (~2 s on 64 KB without an '@').
-  it.each(['a', 'a.', '1.', 'a1', '-'])('scrubs 64 KB of %j in linear time', (unit) => {
+  it.each(['a', 'a.', '1.', 'a1', '-', 'wss://', 'https://a', '=/a'])('scrubs 64 KB of %j in linear time', (unit) => {
     const text = unit.repeat(64000 / unit.length);
     const started = performance.now();
     scrub(text);

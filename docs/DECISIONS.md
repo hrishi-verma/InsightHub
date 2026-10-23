@@ -193,3 +193,14 @@ about 2 s per 64 KB. Public keys live in browsers, so anyone could have used up 
 staying within the rate limits. The local part is now limited to 64 characters and the domain labels
 to 63, per RFC 5321. A 64 KB timing test guards every pattern.
 **Why:** scrubbing runs on hostile input before anything else. Every new pattern must be linear.
+
+## D25 — Education Enlightened's hosting, corrected
+*2026-10-23 · Active. Refines D17*
+
+The **website** is on Cloudflare Pages (`https://enlightened-sy.pages.dev`), built and released by
+GitHub Actions. Its `VITE_INSIGHTHUB_*` values are GitHub variables, baked in at build time, so they
+need a new release. The **API** is on Vercel (`https://enlightened-sy-api.vercel.app`). Its
+`INSIGHTHUB_*` env vars need a redeploy. The public key's `allowed_origins` must list
+`https://enlightened-sy.pages.dev`, and later the real domain. Everything in InsightHub still runs on
+the VPS (D17).
+**Why:** the D17 table said "Vercel" for both. Education Enlightened's own D74 records the real setup.

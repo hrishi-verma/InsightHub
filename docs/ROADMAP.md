@@ -23,12 +23,13 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☑ Walk through: login, overview, issues, issue detail, alerts, admin actions, viewer, logout
 - **Check:** no console, CSP or CORS errors; backend and frontend tests pass
 
-## ◐ Phase 4 — Education Enlightened reporter (integration agent)
-- ☐ Worktree `feature/insighthub-reporter`; brief = `docs/agents/integration.md`
-- ☐ Review the diff and run Education Enlightened's checks myself
-- **Check:** Education Enlightened's checks pass, D71 is recorded there, and the report is committed
+## ☑ Phase 4 — Education Enlightened reporter
+- ☑ Already built and merged there on 2026-10-11 (`6c69640`, Education Enlightened D71/D72)
+- ☑ Brought up to today's contract on branch `feature/insighthub-hardening` (`a84219e`, Education Enlightened D75): home-directory scrubbing, ReDoS bounds, no `Origin` header
+- ☐ **Owner:** merge `feature/insighthub-hardening` into Education Enlightened `v3`
+- **Check:** Education Enlightened lint, format, build, website tests, API typecheck and tests all pass
 
-## ☐ Phase 5 — Hardening and end-to-end run
+## ◐ Phase 5 — Hardening and end-to-end run
 - ☐ kafkajs → `@confluentinc/kafka-javascript` (D15): test the built images for restart, retry, offsets, Kafka/DB outages and duplicates
 - ☐ Contract hardening in code (D16, D18), with rejection tests
 - ☐ Processor health and metrics endpoint (internal only)
@@ -41,7 +42,8 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☐ `docker-compose.prod.yml` with Caddy; only 80/443 published; dashboard built on the VPS with the production API URL
 - ☐ Server hardening: firewall, SSH keys only, unattended upgrades, root-only `.env`, nightly `pg_dump`
 - ☐ Migrations, project, keys, admin user
-- ☐ Vercel env vars + **redeploy**; server reporter first, browser reporter after 24 h
+- ☐ Education Enlightened API: `INSIGHTHUB_URL` + `INSIGHTHUB_SECRET_KEY` in Vercel, then **redeploy** (server reporter first)
+- ☐ After 24 h: `VITE_INSIGHTHUB_URL` + `VITE_INSIGHTHUB_KEY` as GitHub variables, then a **new release** to Cloudflare Pages; public key origin `https://enlightened-sy.pages.dev` (D25)
 - **Check:** real 500s show on the dashboard, the processor health check stays clean, and only 22/80/443 are open
 
 ## ☐ Phase 7 — After launch (as needed)

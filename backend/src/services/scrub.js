@@ -1,6 +1,7 @@
 // Contract §1 "Scrubbing on arrival". Senders scrub too; this is the second line of defense.
 
-const URL_WITH_QUERY = /\b((?:https?|wss?):\/\/[^\s?#"'<>`]*)[?#][^\s"'<>`]*/gi;
+// URL part bounded: unbounded, every "wss://" in a long run would rescan to the end (quadratic).
+const URL_WITH_QUERY = /\b((?:https?|wss?):\/\/[^\s?#"'<>`]{0,2048})[?#][^\s"'<>`]*/gi;
 const CREDENTIAL = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT = /\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
 // Bounded (RFC 5321 limits) so a long run without '@' costs linear time, not quadratic (ReDoS).
