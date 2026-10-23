@@ -1,3 +1,6 @@
+> **Archived (2026-10-23).** The original design for the log-monitoring system. InsightHub is now an
+> error tracker. See the root `README.md` and `docs/CONTRACT.md`. The SDKs mentioned here live in `legacy/`.
+
 # InsightHub: Real-Time Smart Log Monitoring System
 
 A comprehensive documentation covering the architecture, system design, functionality, ML pipeline, requirements, setup instructions, API specs, project goals, and implementation details.

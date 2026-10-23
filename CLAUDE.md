@@ -40,6 +40,15 @@ secure **from the first commit**. "Quick fix now, secure later" is not acceptabl
 6. **New dependencies** must be well-known and maintained, and must be listed in your report.
 7. Match the surrounding code's style. Keep comments short, explaining *why*. Docs are plain language.
 
+## Tracking work
+
+- `docs/ROADMAP.md` is the plan: phases in order, one at a time, each ending with a **Check**.
+- When a step or phase finishes, the lead ticks it in the ROADMAP and appends an entry to
+  `docs/PROGRESS.md` (what changed, commits, the check command and its result, follow-ups).
+- Every new decision gets a numbered entry in `docs/DECISIONS.md`. Never rewrite an old entry;
+  supersede it.
+- Agents don't edit these three files. They put the same information in their report.
+
 ## Shared local infrastructure
 
 Several agents work at once, so **don't run `docker compose up` for the whole stack** from a

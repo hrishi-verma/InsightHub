@@ -9,3 +9,5 @@ __pycache__/
 .DS_Store
 can-be-deleted/
 *.pkl
+.env.*
+!.env.example

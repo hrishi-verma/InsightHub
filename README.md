@@ -1,295 +1,82 @@
-# InsightHub: Real-Time Smart Log Monitoring System
+# InsightHub
 
-A production-ready distributed log aggregation, monitoring, and ML-powered anomaly detection platform.
+Error tracking for the Education Enlightened website. The site's browser code and API send a
+report whenever something unexpected breaks. InsightHub scrubs personal data out of each report,
+groups the reports into issues, raises alerts for new issues, spikes and regressions, and shows
+everything on a dashboard. It runs alongside Sentry rather than replacing it.
 
-## 🎯 Features
+It is becoming a production service. Read [`CLAUDE.md`](CLAUDE.md) before changing anything:
+security rules apply from the first commit.
 
-- ✅ **Real-time log ingestion** with Kafka message queue
-- ✅ **ML-powered anomaly detection** (Isolation Forest + Sliding Window)
-- ✅ **Interactive dashboard** with live updates
-- ✅ **Time-series database** (PostgreSQL + TimescaleDB)
-- ✅ **Multi-language SDKs** (Python & JavaScript)
-- ✅ **Advanced analytics** with charts and metrics
-- ✅ **Alert management** system
-- ✅ **Scalable architecture** with Docker
-
-## 🏗️ Architecture
+## How it fits together
 
 ```
-Client SDKs → Backend API → Kafka → Processor → ML Engine → Database
-                                                      ↓
-                                                  Dashboard
+Education Enlightened (browser + API)
+        │  POST /api/v1/events  (API key, scrubbed, rate-limited)
+        ▼
+   backend ──▶ Kafka "error-events" ──▶ processor ──▶ Postgres / TimescaleDB
+      ▲                                     │ (optional, shadow only)
+      │  login + read API                   ▼
+   dashboard                            ml-engine
 ```
 
-## 📁 Project Structure
+| Folder | What it is | Docs |
+| --- | --- | --- |
+| `backend/` | API: event ingestion, dashboard API, admin scripts (Node/Express) | [README](backend/README.md) |
+| `processor-service/` | Kafka consumer: grouping, storage, alert rules (Node) | [README](processor-service/README.md) |
+| `frontend/` | Dashboard (Next.js 16) | [README](frontend/README.md) |
+| `database/` | Schema and migrations (Postgres + TimescaleDB) | [README](database/README.md) |
+| `ml-engine/` | Anomaly model (Flask). Experimental, shadow-only | [README](ml-engine/README.md) |
+| `legacy/` | Old log SDKs for the legacy `/api/logs` pipeline | [README](legacy/README.md) |
+| `docs/` | Contract, decisions, roadmap, progress, agent briefs | see below |
 
-```
-InsightHub/
-├── backend/              # Ingestion API (Node.js + Express)
-├── frontend/             # Dashboard (Next.js + Tailwind + Recharts)
-├── ml-engine/            # ML API (Python + Flask + scikit-learn)
-├── processor-service/    # Stream processor (Node.js + Kafka)
-├── database/             # PostgreSQL + TimescaleDB schemas
-├── sdk-js/               # JavaScript/Node.js SDK
-├── sdk-python/           # Python SDK
-├── can-be-deleted/       # Test scripts and temporary files
-└── docker-compose.yml    # Complete orchestration
-```
+## Docs
 
-## 🚀 Quick Start
+| File | Read it for |
+| --- | --- |
+| [`docs/CONTRACT.md`](docs/CONTRACT.md) | The exact event format, Kafka message, schema and HTTP APIs. **The contract is law** |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's left to do, phase by phase |
+| [`docs/PROGRESS.md`](docs/PROGRESS.md) | What has been done and how it was checked |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why things are the way they are |
+| [`docs/agents/`](docs/agents/README.md) | How the agent team works, their briefs and reports |
+| [`docs/archive/`](docs/archive/original-design.md) | The original log-monitoring design (historical) |
 
-### 1. Start All Services
+## Run it locally
+
 ```bash
-cd InsightHub
-docker compose up --build
+cp .env.example .env          # set POSTGRES_PASSWORD (openssl rand -base64 24)
+docker compose up -d          # Postgres, Kafka, backend, processor, ML engine, dashboard
 ```
 
-### 2. Access the Dashboard
-```
-http://localhost:3000
-```
+Then create a dashboard user and an ingestion key (each key is printed once):
 
-**Login:** Use any email/password (demo mode)
-
-### 3. Send Test Logs
 ```bash
-curl -X POST http://localhost:8000/api/logs \
-  -H "Authorization: Bearer dev-token-123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "demo-service",
-    "level": "ERROR",
-    "message": "Test error message",
-    "latency_ms": 1500
-  }'
+cd backend
+npm run create-user -- --email you@example.com --role admin
+npm run create-key  -- --project education-enlightened --kind secret
 ```
 
-### 4. View Anomalies
-```bash
-# Send logs that trigger anomalies
-./can-be-deleted/send-anomaly-logs.sh
-```
+The dashboard is at http://localhost:3000 and the API at http://localhost:8000. All ports bind to
+`127.0.0.1` only.
 
-## 🔧 Services
+The dashboard's API URL (`NEXT_PUBLIC_API_URL`) is **baked into the browser code at build time**.
+To change it, rebuild the image (`docker compose build frontend`). Restarting isn't enough.
 
-| Service | Port | Description |
-|---------|------|-------------|
-| **Frontend** | 3000 | Next.js dashboard |
-| **Backend** | 8000 | Log ingestion API |
-| **ML Engine** | 5000 | Anomaly detection API |
-| **PostgreSQL** | 5432 | TimescaleDB database |
-| **Kafka** | 9092 | Message queue |
-| **Zookeeper** | 2181 | Kafka coordination |
+Working from an agent worktree? Don't start the whole stack. Run your one service with `npm`
+against the lead's shared Postgres and Kafka (see `CLAUDE.md`).
 
-## 📊 Dashboard Pages
+## Tests
 
-1. **Dashboard** (`/dashboard`) - Real-time stats and charts
-2. **Live Logs** (`/logs`) - Streaming log viewer with filters
-3. **Analytics** (`/analytics`) - Historical data and trends
-4. **Alerts** (`/alerts`) - Alert rule management
-5. **Login** (`/login`) - Authentication
+Each service has its own suite: `npm test` in `backend/`, `processor-service/` and `frontend/`.
+The backend and processor suites need the test databases described in
+[`docs/agents/README.md`](docs/agents/README.md).
 
-## 🤖 ML Engine Features
+## Legacy log pipeline
 
-### Phase 1: Isolation Forest ✅
-- Trained anomaly detection model
-- Real-time scoring API
-- Feature extraction from logs
+The original log-monitoring endpoints (`/api/logs`, Kafka topic `logs`, tables `logs` and
+`log_aggregates`) still run, unchanged. They're off unless `SERVICE_TOKEN` is set. Nothing new
+is built on them. See [`legacy/README.md`](legacy/README.md).
 
-### Phase 2: Sliding Window Stats ✅
-- 5-minute rolling window per service
-- Error rate tracking
-- Latency spike detection (Z-score)
-- Traffic anomaly detection
+## License
 
-### Phase 3: Advanced ML 🔮
-- LSTM sequence detection (framework ready)
-- Autoencoder pattern mining (framework ready)
-- Time series forecasting (framework ready)
-
-## 🧪 Testing
-
-### Send Test Logs
-```bash
-./can-be-deleted/send-test-logs.sh
-```
-
-### Send Anomaly Logs
-```bash
-./can-be-deleted/send-anomaly-logs.sh
-```
-
-### Check ML Engine
-```bash
-curl -X POST http://localhost:5000/score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "test",
-    "level": "ERROR",
-    "latency_ms": 2500
-  }'
-```
-
-### Query Database
-```bash
-docker exec -i insighthub-postgres-1 psql -U postgres -d insighthub \
-  -c "SELECT * FROM logs WHERE is_anomaly = true LIMIT 5;"
-```
-
-## 📚 Using the SDKs
-
-### JavaScript SDK
-```javascript
-const InsightHubClient = require('@insighthub/sdk-js');
-
-const client = new InsightHubClient({
-  apiUrl: 'http://localhost:8000',
-  token: 'dev-token-123',
-  serviceName: 'my-service',
-  batchSize: 10
-});
-
-client.info('User logged in', { userId: 123 });
-client.error('Payment failed', { latency_ms: 1500 });
-await client.flush(); // Send immediately
-```
-
-### Python SDK
-```python
-from insighthub import InsightHubClient
-
-client = InsightHubClient(
-    api_url='http://localhost:8000',
-    token='dev-token-123',
-    service_name='my-service',
-    batch_size=10
-)
-
-client.info('User logged in', {'userId': 123})
-client.error('Payment failed', {'latency_ms': 1500})
-client.flush()  # Send immediately
-```
-
-## 🔍 Monitoring
-
-### Check Service Health
-```bash
-# Backend
-curl http://localhost:8000/health
-
-# ML Engine
-curl http://localhost:5000/health
-
-# Frontend
-curl http://localhost:3000
-```
-
-### View Logs
-```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f processor
-docker compose logs -f ml-engine
-```
-
-### Database Stats
-```bash
-docker exec -i insighthub-postgres-1 psql -U postgres -d insighthub -c "
-  SELECT 
-    COUNT(*) as total_logs,
-    COUNT(*) FILTER (WHERE level = 'ERROR') as errors,
-    COUNT(*) FILTER (WHERE is_anomaly = true) as anomalies
-  FROM logs;
-"
-```
-
-## 🎓 Key Concepts
-
-### Anomaly Detection
-InsightHub uses a **hybrid approach**:
-1. **Isolation Forest** (40% weight) - ML-based outlier detection
-2. **Sliding Window** (60% weight) - Statistical analysis
-3. **Combined Score** - Weighted average with 0.6 threshold
-
-### Log Processing Pipeline
-```
-1. Normalize → 2. Add Timestamp → 3. Time-Series Format
-                    ↓
-4. ML Scoring → 5. Database Storage
-```
-
-### Time-Series Optimization
-- Automatic partitioning by time
-- Efficient queries on recent data
-- Retention policies (future)
-- Continuous aggregates (future)
-
-## 🚨 Troubleshooting
-
-### Services Not Starting
-```bash
-docker compose down
-docker compose up --build
-```
-
-### Database Connection Issues
-```bash
-docker compose restart postgres
-```
-
-### Kafka Connection Issues
-```bash
-docker compose restart kafka zookeeper
-```
-
-### Clear All Data
-```bash
-docker compose down -v
-docker compose up --build
-```
-
-## 📈 Performance
-
-- **Throughput**: ~1000 logs/second per processor instance
-- **Latency**: <10ms processing time per log
-- **ML Scoring**: <2ms per prediction
-- **Database**: Optimized for time-series queries
-
-## 🔐 Security
-
-- Token-based authentication
-- CORS enabled for frontend
-- Rate limiting (1000 req/min)
-- Input validation with Joi
-- SQL injection prevention
-
-## 🎯 Production Deployment
-
-1. Update environment variables
-2. Use production WSGI server for ML engine
-3. Enable SSL/TLS
-4. Set up monitoring and alerting
-5. Configure data retention policies
-6. Scale processor instances horizontally
-
-## 📝 License
-
-MIT
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests
-5. Submit a pull request
-
-## 📧 Support
-
-For issues and questions, please open a GitHub issue.
-
----
-
-**Built with ❤️ using Node.js, Python, React, Kafka, PostgreSQL, and scikit-learn**
+[MIT](LICENSE)

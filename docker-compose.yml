@@ -82,7 +82,14 @@ services:
       - ml-models:/app/models
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # Baked into the browser bundle at build time: changing it needs `docker compose build frontend`.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    environment:
+      # next.config.js re-checks it on start; must match the build arg.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
