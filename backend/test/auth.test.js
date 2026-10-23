@@ -50,6 +50,45 @@ describe('login', () => {
     expect(res.headers['set-cookie'][0]).toMatch(/; Secure/);
   });
 
+  it('uses the __Host- cookie in production: Secure, Path=/, no Domain', async () => {
+    const env = { NODE_ENV: 'production', DASHBOARD_ORIGINS: 'https://dash.example' };
+    const { app } = buildApp({ env });
+    const res = await login(app, 'admin@example.com', PASSWORD, 'https://dash.example');
+    expect(res.status).toBe(200);
+    const cookie = res.headers['set-cookie'][0];
+    expect(cookie).toMatch(/^__Host-ih_session=[A-Za-z0-9_-]{43}; /);
+    expect(cookie).toMatch(/; Secure/);
+    expect(cookie).toMatch(/; Path=\/(;|$)/);
+    expect(cookie).not.toMatch(/Domain/i);
+
+    const value = sessionCookie(res).split('=')[1];
+    expect((await request(app).get('/api/v1/auth/me').set('Cookie', `__Host-ih_session=${value}`)).status).toBe(200);
+    // The development name is not accepted by the production app.
+    expect((await request(app).get('/api/v1/auth/me').set('Cookie', `ih_session=${value}`)).status).toBe(401);
+
+    const out = await request(app).post('/api/v1/auth/logout').set('Cookie', `__Host-ih_session=${value}`)
+      .set('Origin', 'https://dash.example').set('Content-Type', 'application/json');
+    expect(out.headers['set-cookie'][0]).toMatch(/^__Host-ih_session=;.*Max-Age=0.*Secure/);
+  });
+
+  it('does not accept the production cookie name in development', async () => {
+    const { app } = buildApp();
+    const value = sessionCookie(await login(app, 'admin@example.com', PASSWORD)).split('=')[1];
+    expect((await request(app).get('/api/v1/auth/me').set('Cookie', `__Host-ih_session=${value}`)).status).toBe(401);
+  });
+
+  it('rejects passwords over 72 bytes with the generic 400, even multi-byte ones', async () => {
+    const { app } = buildApp();
+    for (const password of ['a'.repeat(73), 'é'.repeat(37)]) { // 73 chars; 74 bytes in 37 chars
+      const res = await login(app, 'admin@example.com', password);
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toBe('Body must be { email, password }');
+      expect(res.headers['set-cookie']).toBeUndefined();
+    }
+    expect((await login(app, 'admin@example.com', 'a'.repeat(72))).status).toBe(401);
+  });
+
   it('gives the same response for unknown email and wrong password', async () => {
     const { app } = buildApp();
     const unknown = await login(app, 'nobody@example.com', PASSWORD);

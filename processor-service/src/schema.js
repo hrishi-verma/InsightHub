@@ -94,7 +94,10 @@ function parseMessage({ key, value }, { maxBytes }) {
   }
 
   // The key routes a project's events to one partition; a mismatch means a broken or forged producer.
-  if (key != null && key.toString() !== String(parsed.data.project_id)) {
+  // The key is required: a keyless message is not from our publisher.
+  const keyText = key == null ? '' : key.toString('utf8');
+  if (!/^[1-9][0-9]{0,9}$/.test(keyText)) return { ok: false, reason: 'missing or malformed key' };
+  if (keyText !== String(parsed.data.project_id)) {
     return { ok: false, reason: 'key does not match project_id' };
   }
   return { ok: true, message: parsed.data };

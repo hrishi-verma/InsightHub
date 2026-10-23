@@ -31,7 +31,7 @@ Status: ☐ todo · ◐ in progress · ☑ done
 
 ## ◐ Phase 5 — Hardening and end-to-end run
 - ☐ kafkajs → `@confluentinc/kafka-javascript` (D15): test the built images for restart, retry, offsets, Kafka/DB outages and duplicates
-- ☐ Contract hardening in code (D16, D18), with rejection tests
+- ☑ Contract hardening in code (D16, D18, D22), with rejection tests
 - ☐ Processor health and metrics endpoint (internal only)
 - ☐ Local end-to-end run: one server error and one browser error, then a check for personal data in stored rows; delete old test rows
 - ☐ `/code-review` + `/security-review`; merge `production` → `main` locally

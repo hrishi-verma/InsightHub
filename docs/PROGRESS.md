@@ -142,3 +142,17 @@ Timing tests extended.
 - Owner merges the Education Enlightened branch.
 - Low-risk scrub gaps: %-encoded text inside messages isn't decoded; the IPv4 rule matches 4-part versions.
 - Education Enlightened hosting corrected (D25).
+
+## 2026-10-23 — Phase 5 step: contract hardening in code (D16, D18, D22)
+Done by the executor (Sonnet) from a GOAL/SCOPE/DONE WHEN brief; I reviewed the diff and re-ran the checks.
+- `backend/src/routes/v1/events.js`: a secret key with any `Origin` header (including `null`) → 401 before any key lookup.
+- `backend/src/routes/v1/auth.js`, `scripts/create-user.js`: passwords over 72 bytes UTF-8 are refused
+  (login → generic 400, before the rate limiter, so it's independent of the account).
+- `backend/src/middleware/dashboard.js`, `app.js`: the cookie is `__Host-ih_session` (Secure, Path=/, no Domain)
+  in production and `ih_session` in development. Each app accepts only its own name.
+- `processor-service/src/schema.js`: the Kafka key is required and must match `^[1-9][0-9]{0,9}$` and `project_id`.
+- New tests for every rejection; READMEs updated.
+
+**Security check:** diff reviewed. No input is echoed in errors; the checks run before expensive work; the
+logout clear carries `Secure; Path=/` (needed to clear a `__Host-` cookie).
+**Checked by:** `backend: npm test` → 121 passed; `processor-service: npm test` → 81 passed.

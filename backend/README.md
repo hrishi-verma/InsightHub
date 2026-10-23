@@ -47,7 +47,7 @@ npm run revoke-key  -- --prefix ih_pk_abc123
 | Scrubbing | Emails, credentials, JWTs, long tokens, IPs, URL query strings and home-directory names in paths are replaced before Kafka. Patterns are bounded and tested against ReDoS |
 | Rate limits | Counted in events: 600/min per secret key; 60/min per public key + IP, 600/min per public key. Plus 1200 requests/min per IP overall. IPs are kept in memory only |
 | Dashboard login | bcrypt (cost 12), same message and work for unknown email or wrong password, 10 tries per 15 min per IP + email |
-| Sessions | `ih_session` cookie: 32 random bytes, HttpOnly, SameSite=Strict, Secure in production, 12 h. The DB stores only its hash |
+| Sessions | `__Host-ih_session` cookie in production (`Secure; Path=/`, no `Domain`), `ih_session` in development: 32 random bytes, HttpOnly, SameSite=Strict, Secure in production, 12 h. The DB stores only its hash |
 | CSRF | State-changing requests need an `Origin` from `DASHBOARD_ORIGINS` and `Content-Type: application/json` |
 | Roles | Only admins can change issue status or acknowledge alerts |
 | Responses | `helmet` headers, `Cache-Control: no-store` on `/api/v1`, JSON errors without stack traces |

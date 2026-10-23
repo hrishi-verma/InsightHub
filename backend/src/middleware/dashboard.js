@@ -2,6 +2,9 @@ const { ApiError } = require('../lib/errors');
 const { isJson, readCookie } = require('../lib/http');
 
 const SESSION_COOKIE = 'ih_session';
+// The __Host- prefix makes browsers refuse the cookie unless it is Secure, Path=/ and has no
+// Domain, so a sibling subdomain can't set or shadow it. Needs HTTPS, so production only.
+const sessionCookieName = (config) => (config.isProduction ? `__Host-${SESSION_COOKIE}` : SESSION_COOKIE);
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // Credentialed CORS only for DASHBOARD_ORIGINS. Other origins get no CORS headers.
@@ -43,10 +46,12 @@ function requireTrustedOrigin(dashboardOrigins) {
 function requireSession(sessions) {
   return async (req, res, next) => {
     try {
-      const user = await sessions.lookup(readCookie(req, SESSION_COOKIE));
+      // Set once in createApp from config, so every route agrees on the name.
+      const token = readCookie(req, req.app.get('sessionCookieName'));
+      const user = await sessions.lookup(token);
       if (!user) throw new ApiError('UNAUTHORIZED', 'Not logged in');
       req.user = user;
-      req.sessionToken = readCookie(req, SESSION_COOKIE);
+      req.sessionToken = token;
       next();
     } catch (err) {
       next(err);
@@ -59,4 +64,4 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { dashboardCors, requireTrustedOrigin, requireSession, requireAdmin, SESSION_COOKIE };
+module.exports = { dashboardCors, requireTrustedOrigin, requireSession, requireAdmin, sessionCookieName };

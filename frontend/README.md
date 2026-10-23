@@ -21,7 +21,7 @@ get the viewer role. Mocks only work with `next dev`: a production build refuses
 
 ## Pages
 
-- `/login`: email + password. The API sets an httpOnly `ih_session` cookie. The JS never sees it.
+- `/login`: email + password. The API sets an httpOnly session cookie (`__Host-ih_session` in production, `ih_session` in development). The JS never sees it.
 - `/dashboard`: totals, events per hour (browser vs server), top 5 issues, open alerts.
 - `/issues`: status / source / environment filters, title search, sort, "load more".
 - `/issues/[id]`: details, 24 h chart, recent events with stack traces. Admins can Resolve / Ignore / Reopen.

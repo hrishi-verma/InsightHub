@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const { ApiError } = require('../../lib/errors');
-const { requireSession, SESSION_COOKIE } = require('../../middleware/dashboard');
+const { requireSession, sessionCookieName } = require('../../middleware/dashboard');
 const { SESSION_TTL_MS } = require('../../services/sessions');
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -14,7 +14,8 @@ const BAD_LOGIN = 'Invalid email or password';
 
 const loginSchema = z.strictObject({
   email: z.string().min(1).max(254),
-  password: z.string().min(1).max(128),
+  // bcrypt ignores bytes past 72, so longer passwords are refused (same 400 for every account).
+  password: z.string().min(1).max(128).refine((p) => Buffer.byteLength(p, 'utf8') <= 72),
 });
 
 function createAuthRouter({ pool, sessions, rateLimitStore, config }) {
@@ -22,6 +23,7 @@ function createAuthRouter({ pool, sessions, rateLimitStore, config }) {
   // Compared against when the email is unknown, so both paths cost one bcrypt check.
   const dummyHash = bcrypt.hash('insighthub-timing-equaliser', BCRYPT_COST);
 
+  const cookieName = sessionCookieName(config);
   const cookieAttrs = (maxAgeSeconds) =>
     [`Path=/`, 'HttpOnly', 'SameSite=Strict', `Max-Age=${maxAgeSeconds}`, ...(config.isProduction ? ['Secure'] : [])].join('; ');
 
@@ -48,7 +50,7 @@ function createAuthRouter({ pool, sessions, rateLimitStore, config }) {
       // Opportunistic cleanup; a periodic job also does this.
       sessions.deleteExpired().catch(() => {});
       const token = await sessions.create(user.id);
-      res.set('Set-Cookie', `${SESSION_COOKIE}=${token}; ${cookieAttrs(Math.floor(SESSION_TTL_MS / 1000))}`);
+      res.set('Set-Cookie', `${cookieName}=${token}; ${cookieAttrs(Math.floor(SESSION_TTL_MS / 1000))}`);
       res.status(200).json({ user: { id: user.id, email: user.email, role: user.role } });
     } catch (err) {
       next(err);
@@ -58,7 +60,7 @@ function createAuthRouter({ pool, sessions, rateLimitStore, config }) {
   router.post('/logout', requireSession(sessions), async (req, res, next) => {
     try {
       await sessions.destroy(req.sessionToken);
-      res.set('Set-Cookie', `${SESSION_COOKIE}=; ${cookieAttrs(0)}`);
+      res.set('Set-Cookie', `${cookieName}=; ${cookieAttrs(0)}`);
       res.status(204).end();
     } catch (err) {
       next(err);

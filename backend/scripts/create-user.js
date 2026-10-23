@@ -53,8 +53,9 @@ runScript(async (pool) => {
   if (!email.success) throw fail('--email must be a valid email address');
   if (!['admin', 'viewer'].includes(values.role)) throw fail('--role must be admin or viewer');
 
-  const password = await readHidden('Password (12-128 characters): ');
-  if (password.length < 12 || password.length > 128) throw fail('Password must be 12-128 characters');
+  const password = await readHidden('Password (12 characters to 72 bytes): ');
+  // bcrypt only uses the first 72 bytes, so refuse longer ones instead of silently truncating.
+  if (password.length < 12 || Buffer.byteLength(password, 'utf8') > 72) throw fail('Password must be 12 characters to 72 bytes');
   if (process.stdin.isTTY) {
     const again = await readHidden('Repeat password: ');
     if (again !== password) throw fail('Passwords do not match');

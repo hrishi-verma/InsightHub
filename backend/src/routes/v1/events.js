@@ -52,6 +52,11 @@ function createEventsRouter({ apiKeys, publisher, rateLimitStore }) {
       }
       let key = null;
       if (authHeader !== undefined) {
+        // Secret keys are server-side only. An Origin header (even "null") means a browser sent it,
+        // so the key is exposed: refuse before any lookup. Message doesn't echo key or origin.
+        if (req.get('Origin') !== undefined) {
+          throw new ApiError('UNAUTHORIZED', 'Secret keys must not be used from a browser');
+        }
         const m = /^Bearer (\S+)$/.exec(authHeader);
         key = m ? await apiKeys.authenticate(m[1], 'secret') : null;
       } else if (publicKey !== undefined) {

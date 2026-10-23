@@ -3,7 +3,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { ApiError, sendError } = require('./lib/errors');
 const { logger, describeError } = require('./lib/logger');
-const { dashboardCors, requireTrustedOrigin } = require('./middleware/dashboard');
+const { dashboardCors, requireTrustedOrigin, sessionCookieName } = require('./middleware/dashboard');
 const { createApiKeyService } = require('./services/apiKeys');
 const { createSessionService } = require('./services/sessions');
 const { createEventsRouter } = require('./routes/v1/events');
@@ -58,6 +58,7 @@ function createApp({ config, pool, eventPublisher, legacyPublisher, rateLimitSto
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
+  app.set('sessionCookieName', sessionCookieName(config));
   // Flat query values only (no nested objects from qs).
   app.set('query parser', 'simple');
 

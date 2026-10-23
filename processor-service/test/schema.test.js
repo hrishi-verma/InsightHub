@@ -45,6 +45,10 @@ describe('parseMessage', () => {
     'null optional field': raw(envelope(makeEvent({ stack: null }))),
     'project_id as string': raw(envelope(makeEvent(), { project_id: '1' })),
     'key does not match project': raw(envelope(makeEvent()), '2'),
+    'missing key': { key: null, value: Buffer.from(JSON.stringify(envelope(makeEvent()))) },
+    'empty key': raw(envelope(makeEvent()), ''),
+    'non-numeric key': raw(envelope(makeEvent()), 'abc'),
+    'leading-zero key': raw(envelope(makeEvent()), '01'),
     'array root': { key: null, value: Buffer.from('[]') },
   };
 
@@ -56,6 +60,10 @@ describe('parseMessage', () => {
       expect(typeof r.reason).toBe('string');
     });
   }
+
+  it('accepts a decimal key equal to project_id', () => {
+    expect(parse(raw(envelope(makeEvent(), { project_id: 42 }), '42')).ok).toBe(true);
+  });
 
   it('never puts message content in the reason', () => {
     const secretish = 'SENSITIVE-VALUE-123';

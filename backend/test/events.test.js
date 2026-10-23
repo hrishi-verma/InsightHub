@@ -160,6 +160,17 @@ describe('POST /api/v1/events: rejections', () => {
     expect((await sendPublic(app, { events: [makeEvent({ source: 'browser' })] }, SITE, secret.key)).status).toBe(401);
   });
 
+  it('rejects a secret key sent with any Origin header (401), without echoing key or origin', async () => {
+    const { app, eventPublisher } = buildApp();
+    for (const origin of [SITE, 'null', 'https://evil.example']) {
+      const res = await sendSecret(app, { events: [makeEvent()] }).set('Origin', origin);
+      expect(res.status).toBe(401);
+      expect(JSON.stringify(res.body)).not.toContain(secret.key);
+      expect(JSON.stringify(res.body)).not.toContain(origin);
+    }
+    expect(eventPublisher.calls).toHaveLength(0);
+  });
+
   it('rejects a public key from a disallowed origin (403)', async () => {
     const { app } = buildApp();
     const res = await sendPublic(app, { events: [makeEvent({ source: 'browser' })] }, 'https://evil.example');
