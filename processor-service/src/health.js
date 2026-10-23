@@ -4,6 +4,7 @@ const CHECK_TIMEOUT_MS = 2000;
 const CACHE_MS = 5000;
 const REQUEST_TIMEOUT_MS = 5000;
 const CLOSE_TIMEOUT_MS = 2000;
+const STARTUP_GRACE_MS = 60000; // joining the group takes a while
 
 /** Counters since start. Numbers and timestamps only; never message content, ids or errors. */
 function createMetrics(now = () => Date.now()) {
@@ -62,11 +63,17 @@ function cachedCheck(check, { timeoutMs, cacheMs, now }) {
 }
 
 function createHealthServer({
-  host, port, checkDb, checkKafka, metrics, log,
-  timeoutMs = CHECK_TIMEOUT_MS, cacheMs = CACHE_MS, now = () => Date.now(),
+  host, port, checkDb, checkKafka, checkConsumer = () => {}, metrics, log,
+  startupGraceMs = STARTUP_GRACE_MS, timeoutMs = CHECK_TIMEOUT_MS, cacheMs = CACHE_MS, now = () => Date.now(),
 }) {
   const db = cachedCheck(checkDb, { timeoutMs, cacheMs, now });
   const kafka = cachedCheck(checkKafka, { timeoutMs, cacheMs, now });
+  const startedAt = now();
+  // Up during the grace period; after it the consumer must hold at least one partition.
+  const consumer = cachedCheck(() => {
+    if (now() - startedAt < startupGraceMs) return;
+    return Promise.resolve(checkConsumer()).then((ok) => { if (ok === false) throw new Error('no assignment'); });
+  }, { timeoutMs, cacheMs, now });
 
   function send(res, status, body) {
     const text = JSON.stringify(body);
@@ -89,11 +96,13 @@ function createHealthServer({
         return send(res, 405, { error: 'method_not_allowed' });
       }
       if (path === '/metrics') return send(res, 200, metrics.snapshot());
-      const [dbOk, kafkaOk] = await Promise.all([db(), kafka()]);
-      return send(res, dbOk && kafkaOk ? 200 : 503, {
-        status: dbOk && kafkaOk ? 'ok' : 'degraded',
+      const [dbOk, kafkaOk, consumerOk] = await Promise.all([db(), kafka(), consumer()]);
+      const ok = dbOk && kafkaOk && consumerOk;
+      return send(res, ok ? 200 : 503, {
+        status: ok ? 'ok' : 'degraded',
         db: dbOk ? 'up' : 'down',
         kafka: kafkaOk ? 'up' : 'down',
+        consumer: consumerOk ? 'up' : 'down',
       });
     } catch {
       if (!res.headersSent) send(res, 500, { error: 'internal' });

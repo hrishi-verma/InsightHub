@@ -1,11 +1,15 @@
 // Contract §1 "Scrubbing on arrival". Senders scrub too; this is the second line of defense.
 
-// URL part bounded: unbounded, every "wss://" in a long run would rescan to the end (quadratic).
-const URL_WITH_QUERY = /\b((?:https?|wss?):\/\/[^\s?#"'<>`]{0,2048})[?#][^\s"'<>`]*/gi;
+// Patterns must stay linear on hostile input (D24): each one consumes a whole run once and trims
+// in a callback, instead of scanning ahead for a later character (quadratic) or capping the length
+// (which lets anything past the cap through unscrubbed).
+
+// The whole URL, then cut at the first ? or #.
+const URL = /\b(?:https?|wss?):\/\/[^\s"'<>`]*/gi;
 const CREDENTIAL = /\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi;
 const JWT = /\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g;
-// Bounded (RFC 5321 limits) so a long run without '@' costs linear time, not quadratic (ReDoS).
-const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24}/g;
+// Starts only at the beginning of a run (lookbehind), so a long run without '@' is scanned once.
+const EMAIL = /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 const IPV4 = /(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?![\d.]*\d)/g;
 const IPV6_FULL = /(?<![\w:])(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}(?![\w:])/g;
 const IPV6_COMPRESSED = /(?<![\w:])(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6})?::(?:[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){0,6})?(?![\w:])/g;
@@ -21,12 +25,14 @@ function isTokenLike(run) {
   return /[0-9]/.test(run) && /[A-Za-z]/.test(run);
 }
 
-function scrub(text) {
+const cutQuery = (url) => url.replace(/[?#].*$/s, '');
+
+// `homeDirs: false` for url_path: "/home/courses" there is a site route, not a filesystem path.
+function scrub(text, { homeDirs = true } = {}) {
   if (typeof text !== 'string' || text === '') return text;
-  return text
-    .replace(HOME_POSIX, '$1~')
-    .replace(HOME_WINDOWS, '~')
-    .replace(URL_WITH_QUERY, '$1')
+  const withoutHomes = homeDirs ? text.replace(HOME_POSIX, '$1~').replace(HOME_WINDOWS, '~') : text;
+  return withoutHomes
+    .replace(URL, cutQuery)
     .replace(CREDENTIAL, '[credential]')
     .replace(JWT, '[jwt]')
     .replace(EMAIL, '[email]')

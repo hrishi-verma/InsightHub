@@ -35,7 +35,8 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☑ Contract hardening in code (D16, D18, D22), with rejection tests
 - ☑ Processor health and metrics endpoint (internal only, D28)
 - ☑ Local end-to-end run: the real server and browser reporters → dashboard data; personal-data scan clean; test data deleted
-- ☐ `/code-review` + `/security-review`; merge `production` → `main` locally
+- ☑ `/code-review` + `/security-review`; findings fixed (D29, D30, processor liveness)
+- ☐ Merge `production` → `main` locally
 - **Check:** all suites pass, the end-to-end run is clean, the reviews are clean
 
 ## ☐ Phase 6 — Deploy to a VPS (D17)

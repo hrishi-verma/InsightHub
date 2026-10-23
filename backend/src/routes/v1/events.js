@@ -18,7 +18,7 @@ const truncate = (s, max) => (typeof s === 'string' && s.length > max ? s.slice(
 function scrubEvent(event) {
   const out = { ...event, message: truncate(scrub(event.message), 1000) };
   if (out.stack !== undefined) out.stack = truncate(scrub(out.stack), 16000);
-  if (out.url_path !== undefined) out.url_path = truncate(scrub(out.url_path), 512);
+  if (out.url_path !== undefined) out.url_path = truncate(scrub(out.url_path, { homeDirs: false }), 512);
   if (out.tags !== undefined) {
     out.tags = Object.fromEntries(Object.entries(out.tags).map(([k, v]) => [k, truncate(scrub(v), 128)]));
   }

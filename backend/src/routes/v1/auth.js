@@ -14,8 +14,9 @@ const BAD_LOGIN = 'Invalid email or password';
 
 const loginSchema = z.strictObject({
   email: z.string().min(1).max(254),
-  // bcrypt ignores bytes past 72, so longer passwords are refused (same 400 for every account).
-  password: z.string().min(1).max(128).refine((p) => Buffer.byteLength(p, 'utf8') <= 72),
+  // The 72-byte cap applies when a password is set (create-user). Login still accepts up to 128
+  // characters so accounts created before the cap keep working (bcrypt compares the first 72 bytes).
+  password: z.string().min(1).max(128),
 });
 
 function createAuthRouter({ pool, sessions, rateLimitStore, config }) {

@@ -260,6 +260,15 @@ describe('POST /api/v1/events: scrubbing', () => {
     expect(sent.tags).toEqual({ session: '[token]', user: '[email]' });
     expect(sent.url_path).toBe('/reset/[token]');
   });
+
+  it('keeps /home/... site routes in url_path but scrubs home directories in stacks', async () => {
+    const { app, eventPublisher } = buildApp();
+    const event = makeEvent({ url_path: '/home/courses/intro', stack: 'Error\n    at f (/home/deploy/app/x.js:1:2)' });
+    expect((await sendSecret(app, { events: [event] })).status).toBe(202);
+    const sent = eventPublisher.calls[0].events[0];
+    expect(sent.url_path).toBe('/home/courses/intro');
+    expect(sent.stack).toBe('Error\n    at f (~/app/x.js:1:2)');
+  });
 });
 
 describe('OPTIONS /api/v1/events (CORS preflight)', () => {

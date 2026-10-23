@@ -25,6 +25,22 @@ describe('scrub', () => {
     expect(scrub(text)).toBe(text);
   });
 
+  // Review findings: length caps let long values through unscrubbed.
+  it('drops the query of a URL with a very long path', () => {
+    const path = 'p'.repeat(2100);
+    expect(scrub(`GET https://x.com/${path}?token=abc&email=a@b.co failed`)).toBe(`GET https://x.com/${path} failed`);
+  });
+
+  it('redacts emails with a long local part or many domain labels completely', () => {
+    expect(scrub(`${'a'.repeat(70)}@example.com sent`)).toBe('[email] sent');
+    expect(scrub('to x@a.b.c.d.e.f.g.h.i.j.k.example.com now')).toBe('to [email] now');
+  });
+
+  it('keeps site routes under /home in url_path', () => {
+    expect(scrub('/home/courses/intro', { homeDirs: false })).toBe('/home/courses/intro');
+    expect(scrub('/home/courses/intro')).toBe('~/intro');
+  });
+
   it('keeps non-home absolute paths', () => {
     const text = 'at x (/var/task/app.js:1:1) at y (/app/node_modules/z/index.js:2:2) at /usr/lib/node.js';
     expect(scrub(text)).toBe(text);

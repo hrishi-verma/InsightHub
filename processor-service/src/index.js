@@ -40,11 +40,14 @@ async function main() {
     metrics.record(result);
     return result;
   };
+  let errorConsumer = null; // set once runErrorConsumer resolves; the health server starts first
   const health = createHealthServer({
     host: config.health.host,
     port: config.health.port,
     checkDb: () => pool.query('SELECT 1'),
     checkKafka: createKafkaCheck(kafka, { isStopping: () => stopping }),
+    // assignment() returns [{ topic, partition }] and throws if not connected (-> down).
+    checkConsumer: () => errorConsumer !== null && errorConsumer.assignment().length > 0,
     metrics,
     log,
   });
@@ -74,9 +77,10 @@ async function main() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  consumers.push(await runErrorConsumer({
+  errorConsumer = await runErrorConsumer({
     kafka, kafkaConfig: config.kafka, processMessage, log, isStopping: () => stopping,
-  }));
+  });
+  consumers.push(errorConsumer);
   log('consumer_started', { topic: config.kafka.errorTopic, group: config.kafka.errorGroup, ml_shadow: config.ml.enabled });
 
   if (config.kafka.legacyLogs) {

@@ -54,7 +54,16 @@ function createKafkaCheck(kafka, { isStopping, timeoutMs = 1800 }) {
 async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isStopping }) {
   // No CRASH event in this client (consumer.events throws), so there is no crash log line.
   const consumer = kafka.consumer({
-    kafkaJS: { groupId: kafkaConfig.errorGroup, fromBeginning: false, autoCommit: false },
+    kafkaJS: {
+      groupId: kafkaConfig.errorGroup,
+      fromBeginning: false,
+      autoCommit: false,
+      // eachMessage blocks while processMessage retries a DB outage forever (no data loss), and the
+      // library maps this to max.poll.interval.ms: past it the member is kicked from the group.
+      // 15 min covers long outages; after a longer one the redelivery is safe because storing is
+      // idempotent on (event_id, occurred_at).
+      rebalanceTimeout: 900000,
+    },
   });
 
   await consumer.connect();
@@ -62,8 +71,8 @@ async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isSto
   await consumer.run({
     partitionsConsumedConcurrently: kafkaConfig.concurrency, // bounded parallelism; one partition stays in order
     eachMessage: async ({ topic, partition, message }) => {
-      // The library keeps the session alive itself; processMessage still expects a heartbeat().
-      await processMessage(message, { shouldStop: isStopping, heartbeat: async () => {} });
+      // The library has no per-message heartbeat; liveness is covered by the poll interval above.
+      await processMessage(message, { shouldStop: isStopping });
       const next = (BigInt(message.offset) + 1n).toString();
       try {
         await consumer.commitOffsets([{ topic, partition, offset: next }]);

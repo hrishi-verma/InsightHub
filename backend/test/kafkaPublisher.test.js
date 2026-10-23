@@ -69,6 +69,21 @@ describe('event publisher', () => {
     expect(pub.isConnected()).toBe(true);
   });
 
+  it('keeps concurrent sends safe when one of them fails', async () => {
+    let calls = 0;
+    const { kafka } = fakeKafka(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('broker down');
+      return [];
+    });
+    const pub = createEventPublisher(kafka, 'error-events');
+    const results = await Promise.allSettled([pub.publish(1, [{}], 't'), pub.publish(2, [{}], 't')]);
+    // Each send uses the producer it connected; no TypeError from a producer retired mid-flight.
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect(results.find((r) => r.status === 'rejected').reason.message).toBe('broker down');
+    await pub.publish(3, [{}], 't');
+  });
+
   it('recovers after a failed connect (the client cannot connect the same producer twice)', async () => {
     const { kafka, producers } = fakeKafka();
     kafka.producer.mockImplementationOnce(() => {

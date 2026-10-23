@@ -39,8 +39,11 @@ the processing function directly.
 
 A small internal HTTP endpoint (Node's built-in `http`, no extra dependencies):
 
-- `GET /health` returns 200 `{"status":"ok","db":"up","kafka":"up"}`, or 503 with `"degraded"` and the
-  failing part marked `"down"`. Each check has a 2 s timeout and is cached for 5 s.
+- `GET /health` returns 200 `{"status":"ok","db":"up","kafka":"up","consumer":"up"}`, or 503 with
+  `"degraded"` and the failing part marked `"down"`. Each check has a 2 s timeout and is cached for 5 s.
+  `consumer` is up when the error consumer holds at least one partition (and always for the first 60 s
+  after start, while it joins the group). This assumes no more processor instances than partitions: an
+  idle extra instance would report down.
 - `GET /metrics` returns counts since start: `stored`, `duplicate`, `invalid`, `failed`, `retries`,
   `alerts_raised`, plus `started_at`, `last_event_at` and `uptime_s`. No message content, ids or errors.
 - Anything else gets 404/405. Request bodies are never read.

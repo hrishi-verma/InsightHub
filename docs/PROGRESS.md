@@ -204,3 +204,24 @@ and the README. No new dependencies. I reviewed the diff and checked the built i
   directories): the only hits were the old 2026-10-11 test row, stored before D23.
 - **Cleanup:** after listing them, deleted all 13 test issues, their events and alerts (all `development`), revoked
   the two throwaway keys, and removed the two test users. Left: the project and the owner's admin account.
+
+## 2026-10-23 — Phase 5 step: security review and code review
+**`/security-review`** (main...production, inline: auth, sessions, SQL building, CSRF/CORS, redirects, XSS sinks,
+secret logging): **no high-confidence vulnerabilities.** Outside this review's scope, noted for later: the
+legacy `ml-engine` `/train` endpoint has no auth (internal network only; shadow model, D4).
+
+**`/code-review medium`** (5b7d731..production): 10 findings, 8 fixed:
+1. The consumer would be kicked from the group during DB outages over 5 min → `rebalanceTimeout` 15 min (executor).
+2. `/home/...` site routes in `url_path` were rewritten → no home rule on `url_path` (D30).
+3. `/health` couldn't see a dead consumer → a `consumer` field from `assignment()`, with a 60 s startup grace (executor).
+4. The login 72-byte cap would lock out older accounts → cap only at creation (D29).
+5–6. Length caps let long URLs keep their query and long emails leak a prefix → linear rules with no caps (D30),
+   applied to the backend **and** both Education Enlightened reporters (`c166350` there).
+7. Publisher race: a concurrent retire could null the producer mid-send → `connect()` returns its producer; test added.
+8. HEALTHCHECK ignored `HEALTH_HOST` → uses it, with wildcard → loopback (executor).
+Not fixed: the retry metric is tied to a log event name (low impact); a redundant no-op heartbeat argument (removed anyway in fix 1).
+
+**Checked by:** `backend: npm test` → 134 passed; `processor-service: npm test` → 95 passed; Education Enlightened lint,
+format, build, website tests 74 passed, API typecheck + tests 72 passed (51 DB tests skipped); scrub fuzz worst 1.5 ms per 64 KB
+(backend) and 3 ms (reporters). Live: rebuilt images, `/health` → `{"consumer":"up"}` after the grace period, container
+`healthy`; one event round trip stored; the throwaway key was revoked and test rows removed.

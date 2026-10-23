@@ -36,20 +36,25 @@ function createPublisher(kafka, producerOptions = {}) {
   // This client's producer can't connect() again once connect was called, so a failed producer
   // is replaced, not reconnected. The old one is torn down in the background (bounded).
   function retire(failed) {
-    if (producer !== failed) return;
+    if (!failed || producer !== failed) return;
     producer = null;
     connected = false;
     withTimeout(failed.disconnect(), CONNECT_TIMEOUT_MS, 'kafka disconnect').catch(() => {});
   }
 
+  // Resolves to the connected producer, so callers never read `producer` after an await
+  // (a concurrent failure may have retired it in between).
   async function connect() {
-    if (connected) return;
+    if (connected && producer) return producer;
     if (!connecting) {
       if (!producer) producer = kafka.producer(producerOptions);
       const current = producer;
       connecting = withTimeout(current.connect(), CONNECT_TIMEOUT_MS, 'kafka connect')
         .then(() => {
+          // A disconnect() during the connect leaves nothing to mark as connected.
+          if (producer !== current) throw new Error('kafka producer was replaced while connecting');
           connected = true;
+          return current;
         })
         .catch((err) => {
           retire(current);
@@ -59,12 +64,11 @@ function createPublisher(kafka, producerOptions = {}) {
           connecting = null;
         });
     }
-    await connecting;
+    return connecting;
   }
 
   async function send(record) {
-    await connect();
-    const current = producer;
+    const current = await connect();
     try {
       return await withTimeout(current.send(record), SEND_TIMEOUT_MS, 'kafka send');
     } catch (err) {

@@ -24,7 +24,7 @@ describe('GET /health', () => {
     const { get } = await start();
     const res = await get('/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: 'ok', db: 'up', kafka: 'up' });
+    expect(await res.json()).toEqual({ status: 'ok', db: 'up', kafka: 'up', consumer: 'up' });
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
   });
@@ -35,12 +35,12 @@ describe('GET /health', () => {
     const res = await get('/health');
     const text = await res.text();
     expect(res.status).toBe(503);
-    expect(JSON.parse(text)).toEqual({ status: 'degraded', db: 'down', kafka: 'up' });
+    expect(JSON.parse(text)).toEqual({ status: 'degraded', db: 'down', kafka: 'up', consumer: 'up' });
     expect(text).not.toContain('internal');
     expect(text).not.toContain('hunter2');
 
     const k = await start({ checkKafka: async () => { throw new Error(secret); } });
-    expect(await (await k.get('/health')).json()).toEqual({ status: 'degraded', db: 'up', kafka: 'down' });
+    expect(await (await k.get('/health')).json()).toEqual({ status: 'degraded', db: 'up', kafka: 'down', consumer: 'up' });
   });
 
   it('cuts off a check that hangs', async () => {
@@ -60,6 +60,41 @@ describe('GET /health', () => {
     await get('/health');
     expect(checkDb).toHaveBeenCalledTimes(1);
     expect(checkKafka).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('GET /health consumer', () => {
+  it('503 and consumer down when it has no assignment after the grace period', async () => {
+    const { get } = await start({ checkConsumer: () => false, startupGraceMs: 0 });
+    const res = await get('/health');
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ status: 'degraded', db: 'up', kafka: 'up', consumer: 'down' });
+  });
+
+  it('up when it has an assignment', async () => {
+    const { get } = await start({ checkConsumer: () => true, startupGraceMs: 0 });
+    expect((await get('/health')).status).toBe(200);
+  });
+
+  it('up within the startup grace period even without an assignment', async () => {
+    const checkConsumer = vi.fn(() => false);
+    const { get } = await start({ checkConsumer, startupGraceMs: 60000 });
+    const res = await get('/health');
+    expect(res.status).toBe(200);
+    expect((await res.json()).consumer).toBe('up');
+    expect(checkConsumer).not.toHaveBeenCalled();
+  });
+
+  it('down when assignment() throws, without leaking the error', async () => {
+    const { get } = await start({
+      checkConsumer: () => { throw new Error('Assignment can only be called while connected.'); },
+      startupGraceMs: 0,
+    });
+    const res = await get('/health');
+    const text = await res.text();
+    expect(res.status).toBe(503);
+    expect(JSON.parse(text).consumer).toBe('down');
+    expect(text).not.toContain('connected');
   });
 });
 

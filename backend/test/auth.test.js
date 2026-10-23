@@ -77,16 +77,20 @@ describe('login', () => {
     expect((await request(app).get('/api/v1/auth/me').set('Cookie', `__Host-ih_session=${value}`)).status).toBe(401);
   });
 
-  it('rejects passwords over 72 bytes with the generic 400, even multi-byte ones', async () => {
+  // The 72-byte cap is enforced by create-user; login must keep older, longer passwords working.
+  it('still logs in an account created with a password over 72 bytes', async () => {
+    const long = `${'L'.repeat(90)}-pre-cap`;
+    await createUser('legacy@example.com', long, 'viewer');
     const { app } = buildApp();
-    for (const password of ['a'.repeat(73), 'é'.repeat(37)]) { // 73 chars; 74 bytes in 37 chars
-      const res = await login(app, 'admin@example.com', password);
-      expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
-      expect(res.body.error.message).toBe('Body must be { email, password }');
-      expect(res.headers['set-cookie']).toBeUndefined();
-    }
-    expect((await login(app, 'admin@example.com', 'a'.repeat(72))).status).toBe(401);
+    expect((await login(app, 'legacy@example.com', long)).status).toBe(200);
+  });
+
+  it('rejects passwords over 128 characters with the generic 400', async () => {
+    const { app } = buildApp();
+    const res = await login(app, 'admin@example.com', 'a'.repeat(129));
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe('Body must be { email, password }');
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 
   it('gives the same response for unknown email and wrong password', async () => {

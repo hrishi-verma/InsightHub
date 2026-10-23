@@ -246,3 +246,22 @@ Responses hold only fixed strings and counters. An operator who sets `HEALTH_HOS
 traffic volumes to that network, so never publish the port.
 **Why:** after the switch to the Confluent client there's no crash event to log (D26), so this is how
 an outage gets noticed. Auth on a loopback endpoint would only add a secret to manage.
+
+## D29 — The 72-byte password cap applies when a password is set, not at login
+*2026-10-23 · Active. Refines D16*
+
+`create-user` refuses passwords over 72 bytes. Login accepts up to 128 characters, as before.
+**Why:** code review found that rejecting long passwords at login would lock out any account created
+before the cap. bcrypt compares only the first 72 bytes either way, so accepting them at login adds
+no weakness.
+
+## D30 — Scrub rules are linear without length caps; `url_path` keeps `/home/...` routes
+*2026-10-23 · Active. Refines D23, D24*
+
+Each scrub rule consumes a whole run once and trims inside a callback: the URL is cut at the first
+`?`/`#`, and an email is a run of local-part characters starting at the beginning of a run. Worst
+case is ~1.5 ms per 64 KB in the backend and ~3 ms in the reporters. The home-directory rule isn't
+applied to `url_path`.
+**Why:** code review found two problems with the D24 caps. A URL path over 2048 characters kept its
+query string, and an email local part over 64 characters leaked its first characters. Separately,
+`/home/courses` site routes were being rewritten to `~`.

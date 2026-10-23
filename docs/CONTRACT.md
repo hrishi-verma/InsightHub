@@ -100,7 +100,8 @@ Senders scrub too, but the backend applies this to `message`, `stack` and tag va
 - runs of ≥ 24 characters from `[A-Za-z0-9_-]` that are **all hex, or contain both a letter and a digit** → `[token]`
   (so long identifiers like `PrismaClientKnownRequestError` survive; amended 2026-10-11)
 - IPv4/IPv6 addresses → `[ip]`
-- home directories in paths (`/Users/<name>`, `/home/<name>`, `C:\Users\<name>`) → `~` (amended 2026-10-23)
+- home directories in paths (`/Users/<name>`, `/home/<name>`, `C:\Users\<name>`) → `~`, in message, stack
+  and tags but **not** `url_path` (where `/home/...` is a site route) (amended 2026-10-23)
 - query strings and fragments inside URLs → removed (`https://a.com/x?y=1` → `https://a.com/x`)
 
 ---
@@ -217,7 +218,8 @@ strings. Cursors are opaque strings. Anything not found, or in another project, 
 
 - `npm run create-user -- --email a@b.com --role admin` asks for the password interactively
   (never as an argument). At least 12 characters and at most **72 bytes** in UTF-8, bcrypt's limit
-  (amended 2026-10-23). Login rejects a password over 72 bytes with 400.
+  (amended 2026-10-23). Login still accepts up to 128 characters, so accounts created before the
+  cap keep working.
 - `npm run create-key -- --project education-enlightened --kind public --origin http://localhost:5173`
   prints the key **once**. `--origin` is repeatable and required for public keys (exact origins,
   `https://` in production; `http://localhost:*` allowed only when `NODE_ENV=development`).
