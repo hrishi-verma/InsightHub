@@ -48,7 +48,9 @@ from both its API and its website, without weakening security or privacy.
 - `vite.config.ts`: add `origin(process.env.VITE_INSIGHTHUB_URL)` to `connect-src`, the same way as Sentry.
 
 **Scrubbing (both sides, shared logic is fine):** emails, bearer/basic credentials, JWTs, long
-hex/base64 tokens, IPs, URL query strings and fragments. Same patterns as contract §1.
+hex/base64 tokens, IPs, URL query strings and fragments, home directories in paths (`/Users/<name>` → `~`).
+Keep every pattern bounded (no unbounded `+` before a literal like `@`), because scrubbing runs on
+untrusted text. Same patterns as contract §1.
 
 ## Tests (required)
 Vitest, with `fetch` mocked:

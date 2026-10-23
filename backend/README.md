@@ -44,7 +44,7 @@ npm run revoke-key  -- --prefix ih_pk_abc123
 | Ingestion auth | Key looked up by SHA-256 hash, compared in constant time. Revoked or unknown → 401 |
 | Browser keys | `Origin` must exactly match the key's allowed origins, else 403. CORS preflight answered only for those origins |
 | Validation | Strict schema: unknown fields → 400, the whole batch is rejected. 1–20 events, 64 KB max |
-| Scrubbing | Emails, credentials, JWTs, long tokens, IPs and URL query strings are replaced before Kafka |
+| Scrubbing | Emails, credentials, JWTs, long tokens, IPs, URL query strings and home-directory names in paths are replaced before Kafka. Patterns are bounded and tested against ReDoS |
 | Rate limits | Counted in events: 600/min per secret key; 60/min per public key + IP, 600/min per public key. Plus 1200 requests/min per IP overall. IPs are kept in memory only |
 | Dashboard login | bcrypt (cost 12), same message and work for unknown email or wrong password, 10 tries per 15 min per IP + email |
 | Sessions | `ih_session` cookie: 32 random bytes, HttpOnly, SameSite=Strict, Secure in production, 12 h. The DB stores only its hash |

@@ -100,6 +100,7 @@ Senders scrub too, but the backend applies this to `message`, `stack` and tag va
 - runs of ≥ 24 characters from `[A-Za-z0-9_-]` that are **all hex, or contain both a letter and a digit** → `[token]`
   (so long identifiers like `PrismaClientKnownRequestError` survive; amended 2026-10-11)
 - IPv4/IPv6 addresses → `[ip]`
+- home directories in paths (`/Users/<name>`, `/home/<name>`, `C:\Users\<name>`) → `~` (amended 2026-10-23)
 - query strings and fragments inside URLs → removed (`https://a.com/x?y=1` → `https://a.com/x`)
 
 ---

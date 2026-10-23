@@ -175,3 +175,21 @@ needs rotating.
 **Why:** a `__Host-` cookie must be `Secure`. Over plain http on localhost, Safari won't set a
 `Secure` cookie at all, which would break local logins. The dashboard never reads the cookie
 (httpOnly), so only the backend cares about its name.
+
+## D23 — Scrub home-directory names out of paths
+*2026-10-23 · Active (contract §1)*
+
+`/Users/<name>`, `/home/<name>` and `C:\Users\<name>` → `~`, applied to message, stack, tags and
+`url_path`.
+**Why:** the Phase 3 walkthrough showed a stored culprit containing the developer's macOS username
+and folder names. Stacks from a laptop or a self-hosted server carry the OS user's name. Vercel's
+`/var/task` paths are unaffected.
+
+## D24 — Scrub patterns must be bounded (ReDoS)
+*2026-10-23 · Active*
+
+The email pattern's unbounded local part made scrubbing quadratic: about 126 ms per 16 KB stack and
+about 2 s per 64 KB. Public keys live in browsers, so anyone could have used up the API's CPU while
+staying within the rate limits. The local part is now limited to 64 characters and the domain labels
+to 63, per RFC 5321. A 64 KB timing test guards every pattern.
+**Why:** scrubbing runs on hostile input before anything else. Every new pattern must be linear.

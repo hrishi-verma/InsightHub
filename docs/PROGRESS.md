@@ -85,3 +85,33 @@ Reviewed what's left. Owner decisions: D15–D19. Plan written to `docs/ROADMAP.
 **Checked by:** read through the contract diff. **Follow-ups:** code changes in Phase 5
 (`backend/src/middleware/dashboard.js` cookie name, `backend/test/auth.test.js`, processor key check,
 and the `backend/README.md` / `frontend/README.md` cookie mentions).
+
+## 2026-10-23 — Phase 3: dashboard against the real API
+Ran the shared Postgres + Kafka, the backend (`DASHBOARD_ORIGINS=http://127.0.0.1:3000,http://localhost:3000`),
+the processor, and the dashboard (`NEXT_PUBLIC_API_URL=http://127.0.0.1:8000`; with a SameSite=Strict
+cookie, `localhost` and `127.0.0.1` are different sites, so both must use the same host).
+Throwaway users `e2e-admin@insighthub.test` / `e2e-viewer@insighthub.test` (random passwords kept
+outside the repo; removed in Phase 5).
+
+**Walkthrough (Chrome):** login → overview → issues → issue detail (chart, events) → alerts →
+resolve and reopen (admin) → sign out → viewer sees no admin buttons → sign out. No app console errors.
+**API (curl):**
+- Admin and viewer logins 200; wrong password and unknown user are both 401 with the same message; login from a foreign Origin 403.
+- All reads 200, unauthenticated 401.
+- Viewer PATCH/ack 403. Admin PATCH without Origin, or with a form content type, 403.
+- No CORS headers for a foreign origin. Logout 204, then `/auth/me` 401, and the session row is deleted.
+**Headers:** dashboard nonce CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`,
+`no-referrer`. API `Cache-Control: no-store` and helmet headers.
+
+**Security check — found and fixed:**
+1. **Personal data in stack paths (D23).** A stored culprit contained the developer's username and folders.
+   Added a home-directory rule to `backend/src/services/scrub.js`, plus tests.
+2. **ReDoS in the email scrub pattern (D24).** Quadratic: 126 ms per 16 KB stack, ~2 s per 64 KB, reachable
+   with a public browser key. Bounded the pattern. Worst case across 17 hostile inputs went from 126 ms to 3.2 ms.
+   Added a 64 KB timing test. Processor fingerprint regexes fuzzed the same way: worst 0.5 ms, no change needed.
+
+**Checked by:** `backend: npm test` → 114 passed; `processor-service: npm test` → 76 passed;
+`frontend: npm test` → 24 passed.
+**Notes:** the browser automation can't type `+` reliably. That's a test-tool quirk, not an app bug: the same
+password logged in fine via curl. Existing rows aren't re-scrubbed, so the old test rows (including the path one)
+get deleted in Phase 5.

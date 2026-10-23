@@ -18,12 +18,12 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☑ Secret key + `Origin` → 401; 72-byte password cap; `__Host-ih_session`; Kafka key required
 - **Check:** read through the contract diff
 
-## ◐ Phase 3 — Dashboard against the real API
-- ☐ Run the backend and frontend without mocks; admin and viewer users
-- ☐ Walk through: login, overview, issues, issue detail, alerts, admin actions, viewer, logout
+## ☑ Phase 3 — Dashboard against the real API
+- ☑ Run the backend and frontend without mocks; admin and viewer users
+- ☑ Walk through: login, overview, issues, issue detail, alerts, admin actions, viewer, logout
 - **Check:** no console, CSP or CORS errors; backend and frontend tests pass
 
-## ☐ Phase 4 — Education Enlightened reporter (integration agent)
+## ◐ Phase 4 — Education Enlightened reporter (integration agent)
 - ☐ Worktree `feature/insighthub-reporter`; brief = `docs/agents/integration.md`
 - ☐ Review the diff and run Education Enlightened's checks myself
 - **Check:** Education Enlightened's checks pass, D71 is recorded there, and the report is committed
