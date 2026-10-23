@@ -18,7 +18,7 @@ dashboard ◀──────────(4) read API + login─────�
 
 | Kind | Format | Sent as | Used by | Rules |
 | --- | --- | --- | --- | --- |
-| secret | `ih_sk_` + 43 chars base64url (32 random bytes) | `Authorization: Bearer <key>` | servers | Never put in a browser. Events must have `source: "server"` |
+| secret | `ih_sk_` + 43 chars base64url (32 random bytes) | `Authorization: Bearer <key>` | servers | Never put in a browser: a request carrying an `Origin` header is **401** (amended 2026-10-23). Events must have `source: "server"` |
 | public | `ih_pk_` + 43 chars base64url | `X-InsightHub-Key: <key>` | browsers | Request `Origin` must exactly match one of the key's `allowed_origins`, else **403**. Events must have `source: "browser"` |
 
 Keys are looked up by SHA-256 hash and compared in constant time. Revoked keys get **401**.
@@ -35,7 +35,7 @@ key's `allowed_origins`. Allow headers `Content-Type, X-InsightHub-Key`, method 
 | --- | --- | --- |
 | 202 | Accepted (queued) | `{ "accepted": <n> }` |
 | 400 | Invalid body or any invalid event (whole batch rejected) | error shape (below) |
-| 401 | Missing, unknown or revoked key | error shape |
+| 401 | Missing, unknown or revoked key; both key headers sent; secret key with an `Origin` header | error shape |
 | 403 | Public key from a disallowed Origin, or `source` doesn't match key kind | error shape |
 | 413 | Body over 64 KB | error shape |
 | 415 | Not JSON | error shape |
@@ -114,7 +114,8 @@ Senders scrub too, but the backend applies this to `message`, `stack` and tag va
 { "schema": 1, "project_id": 1, "received_at": "2026-10-11T09:30:01.120Z", "event": { …validated, scrubbed Event… } }
 ```
 
-If the message key is present it must equal `project_id`, otherwise the message is skipped.
+The message key is **required** and must be the decimal string of `project_id`. A missing,
+non-numeric or mismatched key means the message is skipped and logged (amended 2026-10-23).
 The processor still validates every message (strict schema). Invalid messages are logged
 (without their content) and skipped, so one bad message never stops the consumer.
 
@@ -169,9 +170,10 @@ and store `ml_score` + `ml_model_version` (`synthetic-v0`). It **never** affects
 
 ## 4. Dashboard API (same backend, under `/api/v1`)
 
-**Auth:** session cookie `ih_session` (random 32 bytes; DB stores only its SHA-256), httpOnly,
-`SameSite=Strict`, `Secure` in production, `Path=/`. Sessions expire after 12 h. Users are
-created with a CLI script (no public sign-up).
+**Auth:** session cookie (random 32 bytes; DB stores only its SHA-256), httpOnly, `SameSite=Strict`,
+`Path=/`, no `Domain`. In production it is named **`__Host-ih_session`** and is `Secure`. In
+development (plain http on localhost) it is `ih_session` without `Secure` (amended 2026-10-23).
+Sessions expire after 12 h. Users are created with a CLI script (no public sign-up).
 
 **CORS/CSRF:** credentials allowed only for origins in `DASHBOARD_ORIGINS`. Every
 state-changing request must be `application/json` and have an `Origin` in `DASHBOARD_ORIGINS`,
@@ -213,7 +215,8 @@ strings. Cursors are opaque strings. Anything not found, or in another project, 
 ## 5. Admin scripts (backend)
 
 - `npm run create-user -- --email a@b.com --role admin` asks for the password interactively
-  (never as an argument). 12–128 characters.
+  (never as an argument). At least 12 characters and at most **72 bytes** in UTF-8, bcrypt's limit
+  (amended 2026-10-23). Login rejects a password over 72 bytes with 400.
 - `npm run create-key -- --project education-enlightened --kind public --origin http://localhost:5173`
   prints the key **once**. `--origin` is repeatable and required for public keys (exact origins,
   `https://` in production; `http://localhost:*` allowed only when `NODE_ENV=development`).

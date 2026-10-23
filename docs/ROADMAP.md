@@ -14,11 +14,11 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☑ Remove the merged agent worktrees (branches kept)
 - **Check:** `docker compose config -q` passes, no broken doc references, and `git status` shows only the intended changes
 
-## ◐ Phase 2 — Contract updates (D16, D18)
-- ☐ Secret key + `Origin` → 401; 72-byte password cap; `__Host-ih_session`; Kafka key required
+## ☑ Phase 2 — Contract updates (D16, D18)
+- ☑ Secret key + `Origin` → 401; 72-byte password cap; `__Host-ih_session`; Kafka key required
 - **Check:** read through the contract diff
 
-## ☐ Phase 3 — Dashboard against the real API
+## ◐ Phase 3 — Dashboard against the real API
 - ☐ Run the backend and frontend without mocks; admin and viewer users
 - ☐ Walk through: login, overview, issues, issue detail, alerts, admin actions, viewer, logout
 - **Check:** no console, CSP or CORS errors; backend and frontend tests pass

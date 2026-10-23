@@ -31,6 +31,7 @@ from both its API and its website, without weakening security or privacy.
   `url_path` = `req.path` (never the query), `http.{method,status,route}`, `release` from
   `VERCEL_GIT_COMMIT_SHA` (first 12 chars) if set, `runtime` = `node <version>`, `environment`
   from `NODE_ENV`/`VERCEL_ENV`. **Never** include body, headers, cookies, user, IP or query.
+- **Never set an `Origin` header**: InsightHub rejects a secret key that arrives with one (contract §1).
 - Send with `fetch` (built in, no new dependency), `AbortSignal.timeout(2000)`, via
   `afterResponse()` so it finishes on Vercel without delaying the response. Failures are swallowed
   (one `console.warn`, without the key). It must never throw into the request.

@@ -168,3 +168,10 @@ replaces it.
 **Why:** env files are where secrets go. Checked: every committed version held only
 `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`, both pointing at localhost, so nothing in history
 needs rotating.
+
+## D22 — Cookie is `__Host-ih_session` in production, `ih_session` in development
+*2026-10-23 · Planned (roadmap Phase 5). Refines D16*
+
+**Why:** a `__Host-` cookie must be `Secure`. Over plain http on localhost, Safari won't set a
+`Secure` cookie at all, which would break local logins. The dashboard never reads the cookie
+(httpOnly), so only the backend cares about its name.

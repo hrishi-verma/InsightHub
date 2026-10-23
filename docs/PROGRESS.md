@@ -68,3 +68,20 @@ Reviewed what's left. Owner decisions: D15–D19. Plan written to `docs/ROADMAP.
 - `git check-ignore` → `.env.local` ignored, all `.env.example` files not.
 
 **Follow-ups:** none.
+
+## 2026-10-23 — Phase 2: contract updates
+`docs/CONTRACT.md` amended (each change is marked "amended 2026-10-23"):
+- §1: a secret key on a request with an `Origin` header → 401; the 401 row lists every case.
+- §2: the Kafka key is required and must be the decimal `project_id`; anything else is skipped and logged (D18).
+- §4: the cookie is `__Host-ih_session` (Secure) in production and `ih_session` in development (D16, D22).
+- §5: passwords are 12 chars to 72 bytes UTF-8; login rejects anything longer with 400.
+- `docs/agents/integration.md`: the server reporter must never send an `Origin` header.
+
+**Security check:** two gaps found and fixed in the same phase:
+- A `__Host-` cookie can't work over dev http in Safari → split the name by environment (D22).
+- A server sender that sets `Origin` would be locked out → the reporter brief forbids it.
+- The 400 for long passwords doesn't depend on the account, so it can't be used to enumerate users.
+
+**Checked by:** read through the contract diff. **Follow-ups:** code changes in Phase 5
+(`backend/src/middleware/dashboard.js` cookie name, `backend/test/auth.test.js`, processor key check,
+and the `backend/README.md` / `frontend/README.md` cookie mentions).
