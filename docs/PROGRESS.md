@@ -156,3 +156,29 @@ Done by the executor (Sonnet) from a GOAL/SCOPE/DONE WHEN brief; I reviewed the 
 **Security check:** diff reviewed. No input is echoed in errors; the checks run before expensive work; the
 logout clear carries `Secure; Path=/` (needed to clear a `__Host-` cookie).
 **Checked by:** `backend: npm test` → 121 passed; `processor-service: npm test` → 81 passed.
+
+## 2026-10-23 — Phase 5 step: kafkajs → @confluentinc/kafka-javascript 1.11.0 (D15, D26)
+The executor (Sonnet) did the migration (backend producer, processor consumers, lockfiles, a new
+`backend/test/kafkaPublisher.test.js`). Docker needed no change: on Node 24 alpine, `npm ci` fetches the
+prebuilt musl binary. I reviewed the diff, then tested the **built images** on the compose network
+against the shared Kafka and Postgres:
+- (a) event → API → Kafka → processor → Postgres: stored in 1 s; email and home directory scrubbed. ✓
+- (b) processor stopped, event sent, processor restarted: offset 8 → 9, event stored, nothing redone. ✓
+- (c) Kafka stopped: 503 in 5.0 s, API healthy. **First run: the API never recovered after Kafka came back**
+  ("Connect has already been called elsewhere"). Fixed: a failed producer is replaced (D26), and tests use a
+  fake that refuses a second connect, like the real client. Re-run: 503s while down, first request after → 202 and stored. ✓
+- (d) DB stopped while the processor held a message: 7 retries, stored 6 s after the DB returned, lag 0. ✓
+- (e) same `event_id` sent twice: 1 row, `event_count` = 1. ✓
+- After the old kafkajs processor stopped, the new consumer logged "Inconsistent group protocol" until the
+  old members expired (D26).
+
+**Security check:**
+- `npm audit --omit=dev` found two pre-existing high findings: zod (memory exhaustion) and body-parser
+  (compressed-body DoS) → upgraded (D27). The processor moved zod 3 → 4. Both services now have 0 vulnerabilities.
+- The supply-chain note on the native binary download is recorded in D26.
+
+**Local dev:** the native build fails on Node 26 in a path with spaces. The binary built in a scratch
+folder was copied into `node_modules` (git-ignored); both READMEs explain this.
+
+**Checked by:** `backend: npm test` → 128 passed; `processor-service: npm test` → 81 passed;
+both images rebuilt, with a final round trip ✓.

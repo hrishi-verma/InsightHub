@@ -5,7 +5,7 @@ const int = (def, min, max) => z.coerce.number().int().min(min).max(max).default
 const num = (def, min, max) => z.coerce.number().min(min).max(max).default(def);
 
 // Every value is checked at startup. Anything missing or malformed stops the service (fail closed).
-const ConfigSchema = z.object({
+const ConfigFields = z.object({
   KAFKA_BROKER: z.string().min(1), // comma-separated host:port list
   KAFKA_CLIENT_ID: z.string().min(1).default('insighthub-processor'),
   ERROR_EVENTS_TOPIC: z.string().min(1).default('error-events'),
@@ -32,7 +32,8 @@ const ConfigSchema = z.object({
 
   ML_SHADOW: onOff.default('off'),
   ML_ENGINE_URL: z.string().url().refine((u) => /^https?:\/\//.test(u), 'must be http(s)').optional(),
-}).refine((c) => c.ML_SHADOW === 'off' || !!c.ML_ENGINE_URL, {
+});
+const ConfigSchema = ConfigFields.refine((c) => c.ML_SHADOW === 'off' || !!c.ML_ENGINE_URL, {
   message: 'ML_ENGINE_URL is required when ML_SHADOW=on',
   path: ['ML_ENGINE_URL'],
 });
@@ -40,7 +41,7 @@ const ConfigSchema = z.object({
 function loadConfig(env = process.env) {
   // Treat empty strings as "not set" so `FOO=` in a .env file doesn't count as a value.
   const cleaned = {};
-  for (const key of Object.keys(ConfigSchema._def.schema.shape)) {
+  for (const key of Object.keys(ConfigFields.shape)) {
     if (env[key] !== undefined && env[key] !== '') cleaned[key] = env[key];
   }
   const parsed = ConfigSchema.safeParse(cleaned);

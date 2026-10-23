@@ -204,3 +204,32 @@ need a new release. The **API** is on Vercel (`https://enlightened-sy-api.vercel
 `https://enlightened-sy.pages.dev`, and later the real domain. Everything in InsightHub still runs on
 the VPS (D17).
 **Why:** the D17 table said "Vercel" for both. Education Enlightened's own D74 records the real setup.
+
+## D26 — How the Confluent Kafka client is used (follows D15)
+*2026-10-23 · Active*
+
+- `@confluentinc/kafka-javascript` **1.11.0**, pinned exactly, using its KafkaJS-compatible API.
+- **A failed producer is replaced, never reconnected.** This client refuses `connect()` on a producer
+  it has connected before ("Connect has already been called elsewhere"). The first version kept
+  answering 503 forever after a Kafka outage. Found by the outage test and fixed in
+  `backend/src/services/kafka.js`, with tests.
+- `message.timeout.ms` = 5000 on producers, so librdkafka doesn't queue a message for its default
+  5 minutes when the broker is down. The existing 5 s `withTimeout` still bounds every call.
+- **No crash/disconnect events** in this client: the processor's `consumer_crash` log line is gone.
+  The processor health endpoint (roadmap Phase 5) covers this.
+- **Old and new consumers can't share a group:** kafkajs and librdkafka use different group
+  protocols ("Inconsistent group protocol"). Stop old consumers before new ones join. Production
+  starts on a fresh Kafka.
+- **Supply chain:** the install script downloads a prebuilt binary from Confluent's GitHub releases.
+  npm's lockfile integrity covers the npm tarball, not that download. This is accepted: an official
+  Confluent repo and a pinned version. Images are built from a clean `npm ci`.
+- **Why:** kafkajs is unmaintained (D15). The verified behaviour is in `docs/PROGRESS.md`.
+
+## D27 — zod 4.6.7 everywhere
+*2026-10-23 · Active*
+
+GHSA "Zod can exhaust memory while validating oversized constrained collections" affects every
+version below 4.6.6. The backend moved 4.6.5 → 4.6.7, and the processor moved **zod 3 → 4.6.7**
+(its config loader now uses the public `.shape` instead of a zod 3 internal). body-parser
+1.20.8 → 1.20.9 (a DoS with compressed bodies, which the backend already refuses).
+**Why:** `npm audit --omit=dev` must be clean before launch. Both services are now at 0.

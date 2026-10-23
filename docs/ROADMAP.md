@@ -30,7 +30,8 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - **Check:** Education Enlightened lint, format, build, website tests, API typecheck and tests all pass
 
 ## ◐ Phase 5 — Hardening and end-to-end run
-- ☐ kafkajs → `@confluentinc/kafka-javascript` (D15): test the built images for restart, retry, offsets, Kafka/DB outages and duplicates
+- ☑ kafkajs → `@confluentinc/kafka-javascript` (D15, D26): built images verified for restart, offsets, Kafka/DB outages and duplicates
+- ☑ Dependency audit clean: zod 4.6.7, body-parser 1.20.9 (D27)
 - ☑ Contract hardening in code (D16, D18, D22), with rejection tests
 - ☐ Processor health and metrics endpoint (internal only)
 - ☐ Local end-to-end run: one server error and one browser error, then a check for personal data in stored rows; delete old test rows

@@ -112,9 +112,9 @@ async function processLog(pool, rawLog, mlEngineUrl) {
 }
 
 async function runLegacyConsumer({ kafka, pool, mlEngineUrl, log }) {
-  const consumer = kafka.consumer({ groupId: 'log-processors' });
+  const consumer = kafka.consumer({ kafkaJS: { groupId: 'log-processors', fromBeginning: false } });
   await consumer.connect();
-  await consumer.subscribe({ topic: 'logs', fromBeginning: false });
+  await consumer.subscribe({ topics: ['logs'] });
   await consumer.run({
     eachMessage: async ({ message }) => {
       try {

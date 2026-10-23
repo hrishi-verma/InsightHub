@@ -1,12 +1,14 @@
-const { Kafka, logLevel } = require('kafkajs');
+const { Kafka, logLevel } = require('@confluentinc/kafka-javascript').KafkaJS;
 
 function createKafka(kafkaConfig) {
   return new Kafka({
-    clientId: kafkaConfig.clientId,
-    brokers: kafkaConfig.brokers,
-    logLevel: logLevel.WARN,
-    connectionTimeout: 5000,
-    requestTimeout: 30000,
+    kafkaJS: {
+      clientId: kafkaConfig.clientId,
+      brokers: kafkaConfig.brokers,
+      logLevel: logLevel.WARN,
+      connectionTimeout: 5000,
+      requestTimeout: 30000,
+    },
   });
 }
 
@@ -17,18 +19,18 @@ function createKafka(kafkaConfig) {
  * storing is idempotent on (event_id, occurred_at).
  */
 async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isStopping }) {
-  const consumer = kafka.consumer({ groupId: kafkaConfig.errorGroup });
-  consumer.on(consumer.events.CRASH, (e) => {
-    log('consumer_crash', { group: kafkaConfig.errorGroup, error: e.payload && e.payload.error && e.payload.error.name, restart: e.payload && e.payload.restart });
+  // No CRASH event in this client (consumer.events throws), so there is no crash log line.
+  const consumer = kafka.consumer({
+    kafkaJS: { groupId: kafkaConfig.errorGroup, fromBeginning: false, autoCommit: false },
   });
 
   await consumer.connect();
-  await consumer.subscribe({ topic: kafkaConfig.errorTopic, fromBeginning: false });
+  await consumer.subscribe({ topics: [kafkaConfig.errorTopic] });
   await consumer.run({
-    autoCommit: false,
     partitionsConsumedConcurrently: kafkaConfig.concurrency, // bounded parallelism; one partition stays in order
-    eachMessage: async ({ topic, partition, message, heartbeat }) => {
-      await processMessage(message, { shouldStop: isStopping, heartbeat });
+    eachMessage: async ({ topic, partition, message }) => {
+      // The library keeps the session alive itself; processMessage still expects a heartbeat().
+      await processMessage(message, { shouldStop: isStopping, heartbeat: async () => {} });
       const next = (BigInt(message.offset) + 1n).toString();
       try {
         await consumer.commitOffsets([{ topic, partition, offset: next }]);

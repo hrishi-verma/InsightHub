@@ -20,6 +20,12 @@ npm start
 Config is checked at startup. Missing or invalid values (e.g. no `DB_PASSWORD`) stop the service.
 All settings and their defaults are in `.env.example`.
 
+**Kafka client (native).** `@confluentinc/kafka-javascript` ships prebuilt binaries for Node 18–24 only
+(Docker uses `node:24-alpine`, which is covered). On a newer Node it compiles librdkafka from source,
+and that build **fails if the project path contains spaces**. Use Node 24 locally, or build it once in
+a path without spaces and copy `build/Release/confluent-kafka-javascript.node` into
+`node_modules/@confluentinc/kafka-javascript/build/Release/`.
+
 ## Tests
 
 ```bash

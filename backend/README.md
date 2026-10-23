@@ -23,6 +23,12 @@ The service checks every setting at startup and **refuses to start** if one is m
 `DASHBOARD_ORIGINS=*`, `http` origins in production, `TRUST_PROXY=true`, a short `SERVICE_TOKEN`
 and so on. Every variable is explained in [`.env.example`](.env.example).
 
+**Kafka client (native).** `@confluentinc/kafka-javascript` ships prebuilt binaries for Node 18–24 only
+(Docker uses `node:24-alpine`, which is covered). On a newer Node it compiles librdkafka from source,
+and that build **fails if the project path contains spaces**. Use Node 24 locally, or build it once in
+a path without spaces and copy `build/Release/confluent-kafka-javascript.node` into
+`node_modules/@confluentinc/kafka-javascript/build/Release/`.
+
 ## Admin scripts
 
 ```bash
