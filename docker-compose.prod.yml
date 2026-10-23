@@ -1,0 +1,71 @@
+# Production override (D17). Use with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Only Caddy publishes ports (80/443). Postgres, Kafka, the processor's health port and the ML engine
+# stay on the internal network. The full procedure is in docs/DEPLOY.md.
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env (e.g. insighthub.example.org)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env (certificate expiry notices)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  zookeeper:
+    restart: unless-stopped
+
+  kafka:
+    restart: unless-stopped
+    # Not reachable from the host or the internet: no TLS/SASL yet, so it must stay internal.
+    ports: !reset []
+
+  postgres:
+    # Pinned: the base file's latest-pg15 tag could pull a different TimescaleDB on a rebuild.
+    # This digest is TimescaleDB 2.28.3 on Postgres 15.18, the version tested on 2026-10-23.
+    image: timescale/timescaledb@sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634
+    restart: unless-stopped
+    ports: !reset []
+
+  backend:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      NODE_ENV: production
+      # Exactly one proxy (Caddy) in front: req.ip is the real client for rate limits.
+      TRUST_PROXY: "1"
+      DASHBOARD_ORIGINS: https://app.${DOMAIN}
+      # Legacy /api/logs stays off in production unless explicitly configured.
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-}
+
+  processor:
+    restart: unless-stopped
+    environment:
+      ML_SHADOW: "off"
+
+  ml-engine:
+    # Opt-in only (`--profile ml`): shadow scoring is off in production, and its /train endpoint has no auth.
+    profiles: ["ml"]
+    ports: !reset []
+
+  frontend:
+    restart: unless-stopped
+    ports: !reset []
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.${DOMAIN}
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,47 @@
+# TLS and routing for production (D17). DOMAIN and ACME_EMAIL come from the environment.
+# Caddy gets and renews Let's Encrypt certificates automatically and redirects http -> https.
+{
+	email {$ACME_EMAIL}
+}
+
+(common) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	# The apps set their own CSP and other headers; Caddy adds HSTS and hides itself.
+	encode zstd gzip
+	log {
+		# Request lines only. The API's query strings never carry personal data (contract §4),
+		# but client IPs are dropped here anyway (CLAUDE.md: no IPs in logs).
+		format filter {
+			wrap console
+			fields {
+				request>remote_ip delete
+				request>client_ip delete
+				request>headers delete
+				resp_headers delete
+				request>uri query {
+					delete *
+				}
+			}
+		}
+	}
+}
+
+api.{$DOMAIN} {
+	import common
+	# The API caps bodies at 64 KB; refuse anything far larger before it reaches Node.
+	request_body {
+		max_size 128KB
+	}
+	reverse_proxy backend:8000
+}
+
+app.{$DOMAIN} {
+	import common
+	request_body {
+		max_size 64KB
+	}
+	reverse_proxy frontend:3000
+}

@@ -230,3 +230,19 @@ format, build, website tests 74 passed, API typecheck + tests 72 passed (51 DB t
 `main` fast-forwarded to `production` locally (`2bcdd8b`), 30 commits ahead of `origin/main`. **Not pushed:**
 that's the owner's call. Education Enlightened branch `feature/insighthub-hardening` (`a84219e`, `c166350`) is
 ready for the owner to merge into `v3`.
+
+## 2026-10-23 — Phase 6 prep (everything that doesn't need the owner's accounts)
+- `docker-compose.prod.yml`, `deploy/Caddyfile`, `deploy/backup.sh`, `docs/DEPLOY.md` (D31).
+- **Checked by:**
+  - `docker compose -f docker-compose.yml -f docker-compose.prod.yml config`: only Caddy publishes ports;
+    `NEXT_PUBLIC_API_URL=https://api.<DOMAIN>`; backend `NODE_ENV=production`, `TRUST_PROXY=1`; ML engine absent by default.
+  - `caddy validate` (caddy:2.8.4-alpine) → valid.
+  - **Local production smoke** (Caddy with local certs → backend in `NODE_ENV=production`): HTTPS 200 with HSTS and no
+    `Server` header; login → `Set-Cookie: __Host-ih_session=…; Path=/; HttpOnly; SameSite=Strict; …; Secure` and
+    credentialed CORS for the app origin only; `/auth/me` 200 with the `__Host-` cookie, 401 with the dev name;
+    foreign-origin login 403; logout 204 → 401. Caddy logs: no client IP or headers, and `Set-Cookie` redacted (response
+    headers now dropped entirely). Throwaway user deleted, smoke containers removed.
+  - `deploy/backup.sh` run locally → `600` dump; **restored** into a scratch DB with the Timescale pre/post-restore calls:
+    9 tables, the project, the user and 3 hypertables back; scratch DB dropped.
+  - The admin scripts run inside the backend image.
+- **Waiting on the owner:** VPS, domain, then DEPLOY.md §2–7.

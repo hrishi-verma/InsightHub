@@ -36,6 +36,7 @@ Education Enlightened (browser + API)
 | --- | --- |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md) | The exact event format, Kafka message, schema and HTTP APIs. **The contract is law** |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's left to do, phase by phase |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Putting it on a server, step by step (`docker-compose.prod.yml`, `deploy/`) |
 | [`docs/PROGRESS.md`](docs/PROGRESS.md) | What has been done and how it was checked |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why things are the way they are |
 | [`docs/agents/`](docs/agents/README.md) | How the agent team works, their briefs and reports |

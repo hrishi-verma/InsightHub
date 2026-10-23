@@ -265,3 +265,14 @@ applied to `url_path`.
 **Why:** code review found two problems with the D24 caps. A URL path over 2048 characters kept its
 query string, and an email local part over 64 characters leaked its first characters. Separately,
 `/home/courses` site routes were being rewritten to `~`.
+
+## D31 — Production compose: Caddy only, pinned Postgres, ML engine opt-in, no IPs in proxy logs
+*2026-10-23 · Active. Implements D17*
+
+`docker-compose.prod.yml` publishes only Caddy's 80/443. Docker bypasses ufw for published ports, so
+"publish nothing else" is the real firewall for the containers. Postgres is pinned by digest
+(TimescaleDB 2.28.3 / PG 15.18). The ML engine sits behind `--profile ml`: shadow scoring is off, its
+`/train` endpoint has no auth, and its image runs as root. Caddy sets HSTS and caps request bodies
+(API 128 KB). Its access log drops client IPs, request and response headers, and query strings.
+The backend runs with `TRUST_PROXY=1`, so rate limits see the real client through exactly one proxy.
+**Why:** a smaller attack surface, reproducible rebuilds, and no personal data in logs (CLAUDE.md).

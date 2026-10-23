@@ -39,13 +39,15 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☑ Merge `production` → `main` locally (fast-forward; not pushed)
 - **Check:** all suites pass, the end-to-end run is clean, the reviews are clean
 
-## ◐ Phase 6 — Deploy to a VPS (D17)
-- ☐ Needed from the owner: VPS account and a domain (`app.<domain>`, `api.<domain>`)
-- ☐ `docker-compose.prod.yml` with Caddy; only 80/443 published; dashboard built on the VPS with the production API URL
-- ☐ Server hardening: firewall, SSH keys only, unattended upgrades, root-only `.env`, nightly `pg_dump`
-- ☐ Migrations, project, keys, admin user
-- ☐ Education Enlightened API: `INSIGHTHUB_URL` + `INSIGHTHUB_SECRET_KEY` in Vercel, then **redeploy** (server reporter first)
-- ☐ After 24 h: `VITE_INSIGHTHUB_URL` + `VITE_INSIGHTHUB_KEY` as GitHub variables, then a **new release** to Cloudflare Pages; public key origin `https://enlightened-sy.pages.dev` (D25)
+## ◐ Phase 6 — Deploy to a VPS (D17, D25) — runbook: [`DEPLOY.md`](DEPLOY.md)
+- ☑ `docker-compose.prod.yml` + `deploy/Caddyfile`: only 80/443 published, dashboard built with the production API URL, Postgres pinned, ML engine opt-in
+- ☑ Production mode smoke-tested locally through Caddy (HTTPS, HSTS, `__Host-` cookie, CORS, CSRF, logout, log redaction)
+- ☑ `deploy/backup.sh` (root-only dumps, 14 days) — backup **and restore** tested
+- ☐ **Owner:** VPS account and a domain (`api.<domain>`, `app.<domain>` A records)
+- ☐ Server hardening, `.env`, first start, port scan (DEPLOY.md §2–4)
+- ☐ Admin user and keys (§5)
+- ☐ **Owner:** merge Education Enlightened `feature/insighthub-hardening`; Vercel env + redeploy (server reporter); after 24 h GitHub variables + release (browser reporter) (§6)
+- ☐ Backups cron and off-server copies (§7)
 - **Check:** real 500s show on the dashboard, the processor health check stays clean, and only 22/80/443 are open
 
 ## ☐ Phase 7 — After launch (as needed)
