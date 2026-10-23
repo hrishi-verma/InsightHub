@@ -30,6 +30,10 @@ const ConfigFields = z.object({
   ALERT_SPIKE_BASELINE_HOURS: int(24, 1, 720),
   ALERT_SPIKE_COOLDOWN_MINUTES: int(60, 1, 10080),
 
+  // Internal health/metrics endpoint: no auth, so it binds to loopback unless an operator opts in.
+  HEALTH_PORT: int(9100, 1, 65535),
+  HEALTH_HOST: z.string().min(1).default('127.0.0.1'),
+
   ML_SHADOW: onOff.default('off'),
   ML_ENGINE_URL: z.string().url().refine((u) => /^https?:\/\//.test(u), 'must be http(s)').optional(),
 });
@@ -79,6 +83,7 @@ function loadConfig(env = process.env) {
       spikeBaselineHours: c.ALERT_SPIKE_BASELINE_HOURS,
       spikeCooldownMinutes: c.ALERT_SPIKE_COOLDOWN_MINUTES,
     },
+    health: { host: c.HEALTH_HOST, port: c.HEALTH_PORT },
     ml: {
       enabled: c.ML_SHADOW === 'on',
       url: c.ML_ENGINE_URL,

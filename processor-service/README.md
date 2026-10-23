@@ -35,11 +35,25 @@ npm test
 Runs against the `insighthub_test_processor` database (tables are wiped). No Kafka needed: tests call
 the processing function directly.
 
+## Health and metrics
+
+A small internal HTTP endpoint (Node's built-in `http`, no extra dependencies):
+
+- `GET /health` returns 200 `{"status":"ok","db":"up","kafka":"up"}`, or 503 with `"degraded"` and the
+  failing part marked `"down"`. Each check has a 2 s timeout and is cached for 5 s.
+- `GET /metrics` returns counts since start: `stored`, `duplicate`, `invalid`, `failed`, `retries`,
+  `alerts_raised`, plus `started_at`, `last_event_at` and `uptime_s`. No message content, ids or errors.
+- Anything else gets 404/405. Request bodies are never read.
+
+It has **no auth**. It listens on `HEALTH_HOST=127.0.0.1`, port `HEALTH_PORT=9100`, so it is not reachable
+from outside the container. Never publish it to the internet. The Dockerfile `HEALTHCHECK` uses it.
+
 ## Code map
 
 | File | Job |
 | --- | --- |
 | `src/index.js` | Startup, shutdown (SIGTERM/SIGINT) |
+| `src/health.js` | `/health` and `/metrics` server, counters |
 | `src/config.js` | Env config, validated (fail closed) |
 | `src/kafka.js` | `error-events` consumer, manual offset commits after the DB commit |
 | `src/schema.js` | Strict envelope + Event schema |

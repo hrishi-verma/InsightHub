@@ -233,3 +233,16 @@ version below 4.6.6. The backend moved 4.6.5 → 4.6.7, and the processor moved 
 (its config loader now uses the public `.shape` instead of a zod 3 internal). body-parser
 1.20.8 → 1.20.9 (a DoS with compressed bodies, which the backend already refuses).
 **Why:** `npm audit --omit=dev` must be clean before launch. Both services are now at 0.
+
+## D28 — Processor health and metrics: internal, loopback-only, no auth
+*2026-10-23 · Active*
+
+`GET /health` (db + kafka, 200/503) and `GET /metrics` (counters since start) on `HEALTH_HOST:HEALTH_PORT`,
+default `127.0.0.1:9100`. The Docker `HEALTHCHECK` calls it from inside the container.
+**This is a deliberate exception to "every endpoint has auth, a rate limit and a body-size limit"
+(CLAUDE.md).** It isn't reachable from the network by default. It never reads request bodies. Check
+results are cached for 5 s, and each check is cut off at 2 s, so a flood costs nothing downstream.
+Responses hold only fixed strings and counters. An operator who sets `HEALTH_HOST=0.0.0.0` exposes
+traffic volumes to that network, so never publish the port.
+**Why:** after the switch to the Confluent client there's no crash event to log (D26), so this is how
+an outage gets noticed. Auth on a loopback endpoint would only add a secret to manage.

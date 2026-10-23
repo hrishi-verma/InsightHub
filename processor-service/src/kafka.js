@@ -13,6 +13,39 @@ function createKafka(kafkaConfig) {
 }
 
 /**
+ * Health check: lists topics through one reused admin client. The client can't connect() twice,
+ * so after any error (or hang) it is dropped and a fresh one is made on the next check.
+ */
+function createKafkaCheck(kafka, { isStopping, timeoutMs = 1800 }) {
+  let admin = null;
+  const drop = () => {
+    const old = admin;
+    admin = null;
+    if (old) Promise.resolve().then(() => old.disconnect()).catch(() => {});
+  };
+  return async function checkKafka() {
+    if (isStopping()) throw new Error('stopping');
+    if (!admin) {
+      admin = kafka.admin();
+      admin.ready = admin.connect(); // shared by concurrent callers
+    }
+    const current = admin;
+    let timer;
+    try {
+      await Promise.race([
+        current.ready.then(() => current.listTopics()),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('timeout')), timeoutMs); }),
+      ]);
+    } catch (err) {
+      if (admin === current) drop();
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
+/**
  * Consumes `error-events`. Offsets are committed manually, one message at a time and only after
  * processMessage returns (i.e. after the DB transaction committed, or the message was judged
  * invalid/permanently failing and skipped). A redelivery after a crash is harmless because
@@ -43,4 +76,4 @@ async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isSto
   return consumer;
 }
 
-module.exports = { createKafka, runErrorConsumer };
+module.exports = { createKafka, createKafkaCheck, runErrorConsumer };

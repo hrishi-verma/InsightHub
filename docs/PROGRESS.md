@@ -182,3 +182,25 @@ folder was copied into `node_modules` (git-ignored); both READMEs explain this.
 
 **Checked by:** `backend: npm test` → 128 passed; `processor-service: npm test` → 81 passed;
 both images rebuilt, with a final round trip ✓.
+
+## 2026-10-23 — Phase 5 step: processor health and metrics (D28)
+Executor (Sonnet) built `processor-service/src/health.js`, plus the config (`HEALTH_HOST`/`HEALTH_PORT`), the
+wiring in `index.js`, a Kafka admin check that replaces a failed client, the Dockerfile `HEALTHCHECK`, 11 tests
+and the README. No new dependencies. I reviewed the diff and checked the built image:
+- Container reaches `healthy` 3 s after start. `/health` → 200 `{ok, db up, kafka up}`; `/metrics` → counters;
+  POST → 405; unknown path → 404.
+- From another container on the compose network → ECONNREFUSED (loopback only).
+- Postgres stopped → 503 `{"status":"degraded","db":"down"}` in 62 ms; back up → 200.
+**Checked by:** `processor-service: npm test` → 91 passed.
+
+## 2026-10-23 — Phase 5 step: local end-to-end run with the real reporters
+- **Server reporter** (Education Enlightened `buildServerEvent` + `sendToInsightHub`, driven by a temporary script
+  with a fake request carrying a cookie, auth header, body, query and IP). Stored row: email/token/IP scrubbed, home
+  directory → `~`, route/method/status kept. **No cookie, header, body, query or client IP stored.**
+- **Browser reporter** (Education Enlightened website on `localhost:5173` with a throwaway public key, page opened as
+  `/?token=…#frag`, then an uncaught `TypeError` and an unhandled rejection). Both stored with email, credential
+  and IP scrubbed, `url_path` = `/` (query and fragment dropped), runtime = `Chrome 155` only. The CORS preflight was answered.
+- **Personal-data scan** over every stored event and issue (emails, IPv4, query strings, credentials, JWTs, home
+  directories): the only hits were the old 2026-10-11 test row, stored before D23.
+- **Cleanup:** after listing them, deleted all 13 test issues, their events and alerts (all `development`), revoked
+  the two throwaway keys, and removed the two test users. Left: the project and the owner's admin account.

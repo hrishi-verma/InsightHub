@@ -2,10 +2,11 @@ require('dotenv').config({ quiet: true });
 const { Pool } = require('pg');
 const { loadConfig } = require('./config');
 const { log } = require('./logger');
-const { createKafka, runErrorConsumer } = require('./kafka');
+const { createKafka, createKafkaCheck, runErrorConsumer } = require('./kafka');
 const { runLegacyConsumer } = require('./legacyLogs');
 const { createProcessor } = require('./processor');
 const { createMlShadow } = require('./mlShadow');
+const { createHealthServer, createMetrics } = require('./health');
 
 const SHUTDOWN_TIMEOUT_MS = 30000;
 
@@ -27,7 +28,33 @@ async function main() {
   let stopping = false;
   const consumers = [];
   const kafka = createKafka(config.kafka);
-  const processMessage = createProcessor({ pool, config, log, mlScore: createMlShadow(config.ml, { log }) });
+  const metrics = createMetrics();
+  // Count retries from the existing log call instead of changing the processor.
+  const countingLog = (event, fields) => {
+    if (event === 'event_retry') metrics.retry();
+    log(event, fields);
+  };
+  const rawProcess = createProcessor({ pool, config, log: countingLog, mlScore: createMlShadow(config.ml, { log }) });
+  const processMessage = async (...args) => {
+    const result = await rawProcess(...args);
+    metrics.record(result);
+    return result;
+  };
+  const health = createHealthServer({
+    host: config.health.host,
+    port: config.health.port,
+    checkDb: () => pool.query('SELECT 1'),
+    checkKafka: createKafkaCheck(kafka, { isStopping: () => stopping }),
+    metrics,
+    log,
+  });
+  try {
+    await health.listen();
+  } catch (err) {
+    log('health_listen_failed', { code: err && err.code }); // fail closed: no endpoint, no start
+    process.exit(1);
+  }
+  log('health_listening', { host: config.health.host, port: config.health.port });
 
   async function shutdown(signal) {
     if (stopping) return;
@@ -40,6 +67,7 @@ async function main() {
     timer.unref();
     // disconnect() waits for in-flight messages, which then commit their offsets.
     await Promise.allSettled(consumers.map((c) => c.disconnect()));
+    await health.close().catch(() => {});
     await pool.end().catch(() => {});
     process.exit(0);
   }
