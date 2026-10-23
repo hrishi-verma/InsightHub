@@ -29,17 +29,17 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☐ **Owner:** merge `feature/insighthub-hardening` into Education Enlightened `v3`
 - **Check:** Education Enlightened lint, format, build, website tests, API typecheck and tests all pass
 
-## ◐ Phase 5 — Hardening and end-to-end run
+## ☑ Phase 5 — Hardening and end-to-end run
 - ☑ kafkajs → `@confluentinc/kafka-javascript` (D15, D26): built images verified for restart, offsets, Kafka/DB outages and duplicates
 - ☑ Dependency audit clean: zod 4.6.7, body-parser 1.20.9 (D27)
 - ☑ Contract hardening in code (D16, D18, D22), with rejection tests
 - ☑ Processor health and metrics endpoint (internal only, D28)
 - ☑ Local end-to-end run: the real server and browser reporters → dashboard data; personal-data scan clean; test data deleted
 - ☑ `/code-review` + `/security-review`; findings fixed (D29, D30, processor liveness)
-- ☐ Merge `production` → `main` locally
+- ☑ Merge `production` → `main` locally (fast-forward; not pushed)
 - **Check:** all suites pass, the end-to-end run is clean, the reviews are clean
 
-## ☐ Phase 6 — Deploy to a VPS (D17)
+## ◐ Phase 6 — Deploy to a VPS (D17)
 - ☐ Needed from the owner: VPS account and a domain (`app.<domain>`, `api.<domain>`)
 - ☐ `docker-compose.prod.yml` with Caddy; only 80/443 published; dashboard built on the VPS with the production API URL
 - ☐ Server hardening: firewall, SSH keys only, unattended upgrades, root-only `.env`, nightly `pg_dump`

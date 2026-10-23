@@ -225,3 +225,8 @@ Not fixed: the retry metric is tied to a log event name (low impact); a redundan
 format, build, website tests 74 passed, API typecheck + tests 72 passed (51 DB tests skipped); scrub fuzz worst 1.5 ms per 64 KB
 (backend) and 3 ms (reporters). Live: rebuilt images, `/health` → `{"consumer":"up"}` after the grace period, container
 `healthy`; one event round trip stored; the throwaway key was revoked and test rows removed.
+
+## 2026-10-23 — Phase 5 complete
+`main` fast-forwarded to `production` locally (`2bcdd8b`), 30 commits ahead of `origin/main`. **Not pushed:**
+that's the owner's call. Education Enlightened branch `feature/insighthub-hardening` (`a84219e`, `c166350`) is
+ready for the owner to merge into `v3`.
