@@ -263,3 +263,8 @@ ready for the owner to merge into `v3`.
 - That check's `npm audit` found a **critical Next.js advisory** (RCE via the image optimizer with SVG; Server Actions
   DoS) → `next` 16.3.8 → **16.4.3**, plus `images.unoptimized: true` (D33). Checked: audit 0 vulnerabilities,
   `npm test` 24 passed, production build ✓, `/_next/image` → 404 on `next start`.
+
+## 2026-10-24 — Phase 7: scrubber gaps (D35)
+`backend/src/services/scrub.js`: decodes the escapes that matter for scrubbing, plus tests (percent-encoded email,
+query, credential; unrelated `%` untouched; dotted-number behaviour pinned). **Checked by:** scrub + events tests
+69 passed; fuzz worst 3.7 ms per 64 KB.

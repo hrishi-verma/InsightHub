@@ -27,10 +27,18 @@ function isTokenLike(run) {
 
 const cutQuery = (url) => url.replace(/[?#].*$/s, '');
 
+// "jane%40example.com" or "?token%3Dabc" would slip past the rules below, so the characters they
+// depend on are decoded first. Only these; other escapes are left alone (no decodeURIComponent,
+// which throws on malformed input and would change unrelated text).
+const SCRUB_RELEVANT_ESCAPES = { 20: ' ', 23: '#', 26: '&', '2b': '+', '2f': '/', '3a': ':', '3d': '=', '3f': '?', 40: '@' };
+const PERCENT = /%(20|23|26|2[bf]|3[adf]|40)/gi;
+const decodeRelevant = (text) => text.replace(PERCENT, (m, hex) => SCRUB_RELEVANT_ESCAPES[hex.toLowerCase()]);
+
 // `homeDirs: false` for url_path: "/home/courses" there is a site route, not a filesystem path.
 function scrub(text, { homeDirs = true } = {}) {
   if (typeof text !== 'string' || text === '') return text;
-  const withoutHomes = homeDirs ? text.replace(HOME_POSIX, '$1~').replace(HOME_WINDOWS, '~') : text;
+  const decoded = decodeRelevant(text);
+  const withoutHomes = homeDirs ? decoded.replace(HOME_POSIX, '$1~').replace(HOME_WINDOWS, '~') : decoded;
   return withoutHomes
     .replace(URL, cutQuery)
     .replace(CREDENTIAL, '[credential]')

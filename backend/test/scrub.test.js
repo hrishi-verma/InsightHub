@@ -36,6 +36,18 @@ describe('scrub', () => {
     expect(scrub('to x@a.b.c.d.e.f.g.h.i.j.k.example.com now')).toBe('to [email] now');
   });
 
+  it('scrubs percent-encoded emails, credentials and query strings', () => {
+    expect(scrub('lookup failed for jane%40example.com')).toBe('lookup failed for [email]');
+    expect(scrub('GET https://a.com/cb%3Fcode%3D123 failed')).toBe('GET https://a.com/cb failed');
+    expect(scrub('header Bearer%20abc.def')).toBe('header [credential]');
+    expect(scrub('100% done, 50%off')).toBe('100% done, 50%off'); // unrelated escapes untouched
+  });
+
+  // Over-scrubbing a 4-part version like 1.2.3.4 as [ip] is accepted: privacy first (D35).
+  it('treats a 4-part dotted number as an IP', () => {
+    expect(scrub('upgrade to 10.1.2.3 failed')).toBe('upgrade to [ip] failed');
+  });
+
   it('keeps site routes under /home in url_path', () => {
     expect(scrub('/home/courses/intro', { homeDirs: false })).toBe('/home/courses/intro');
     expect(scrub('/home/courses/intro')).toBe('~/intro');

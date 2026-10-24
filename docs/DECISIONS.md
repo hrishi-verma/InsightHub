@@ -304,3 +304,11 @@ image as production, with the schema loaded from `database/`), the dashboard's t
 `npm audit --omit=dev --audit-level=high` for all three. Read-only token; checkout without persisted
 credentials.
 **Why:** tests only ran when someone remembered to run them. The audit step is what caught D33.
+
+## D35 — Scrubber: decode the escapes that hide personal data; over-scrub dotted numbers
+*2026-10-24 · Active*
+
+Before scrubbing, `%20 %23 %26 %2B %2F %3A %3D %3F %40` are decoded, so `jane%40example.com` and
+`cb%3Fcode%3D123` are caught. Other escapes are left as they are. A 4-part dotted number such as a version
+`1.2.3.4` still becomes `[ip]`: the false positive costs readability, the false negative would leak an IP.
+**Why:** roadmap 7d14. Both behaviours are pinned by tests, and the scrubber stays linear (3.7 ms per 64 KB worst case).
