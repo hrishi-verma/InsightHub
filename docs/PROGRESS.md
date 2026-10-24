@@ -294,3 +294,9 @@ one accepted moderate advisory (D38). **Live check:** a host processor with a lo
 message produced a metadata-only DLQ record without its value. The live check also found and fixed a bug: Postgres bigint ids
 arrive as strings, which dropped the dashboard link. Test rows were cleaned up.
 **Full stack rebuilt with all of today's changes:** every service up, the processor healthy, dashboard 200, `/_next/image` 404, API ok.
+
+## 2026-10-24 — Pushed to GitHub; CI green
+Remote `main` had `481a25a` (Dec 2025), whose tree is identical to local `18c3752`. It was joined with `merge -s ours`
+(no content change; checked `git diff` = empty). Pushed `main` and the new `production` branch, both fast-forward, no
+force. Before pushing, every commit was scanned for secrets: no real keys, private keys or tokens; only test fixtures and the
+refused legacy `dev-token-123`. **First CI run: node-services ✓, frontend ✓, ml-engine ✓** on both branches.

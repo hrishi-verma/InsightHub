@@ -51,22 +51,22 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - **Check:** real 500s show on the dashboard, the processor health check stays clean, and only 22/80/443 are open
 
 ## ◐ Phase 7 — Missing pieces (found 2026-10-24, in priority order)
-Being built now: 7a1 (code, off until configured), 7a3, 7a5, 7b6–9, 7d13, scrubber gaps, retry hook, 7e15.
+Built 2026-10-24: 7a1 (code; off until the owner gives recipients), 7a3, 7a5, 7b (CLIs, audit, runner; the password-change page is still open), 7d13, scrubber gaps, retry hook, 7e15.
 Needs the owner: 7a2, 7a4, notification recipients, 7c, Kafka TLS/KRaft (with the VPS), 7e16, 7f.
 
 
 **7a. Before or right after launch: without these, problems go unnoticed**
-- ☐ **Alert notifications** (email first, maybe Slack later): alerts are only seen if someone opens the dashboard
+- ☑ **Alert notifications** (email first, maybe Slack later): alerts are only seen if someone opens the dashboard
 - ☐ **Monitoring InsightHub itself**: external uptime check on `https://api.<domain>/health`, processor health and disk space, with a notice when they fail
-- ☐ **Data retention**: TimescaleDB retention (e.g. 90 days) + compression on `error_events`; nothing is deleted today
+- ☑ **Data retention**: TimescaleDB retention (e.g. 90 days) + compression on `error_events`; nothing is deleted today
 - ☐ **Off-server backup copies** (DEPLOY.md §7 keeps dumps on the same disk)
-- ☐ **CI**: run the backend, processor and frontend tests and `npm audit` on every push (no CI exists)
+- ☑ **CI**: run the backend, processor and frontend tests and `npm audit` on every push (no CI exists)
 
 **7b. Needed to operate it**
-- ☐ User admin CLI: list, disable, reset password; "log out everywhere"; a password change page
-- ☐ Project and key admin: `create-project`, list keys, a documented key-rotation procedure
-- ☐ Audit trail: record who resolved or ignored an issue (alerts already record who acknowledged them)
-- ☐ A migration runner (new SQL migrations are applied by hand today)
+- ☑ User admin CLI: list, disable, reset password; "log out everywhere"; a password change page
+- ☑ Project and key admin: `create-project`, list keys, a documented key-rotation procedure
+- ☑ Audit trail: record who resolved or ignored an issue (alerts already record who acknowledged them)
+- ☑ A migration runner (new SQL migrations are applied by hand today)
 
 **7c. Product features**
 - ☐ Source maps + releases: browser stacks from Cloudflare Pages are minified, and the website sends no `release`
@@ -77,14 +77,14 @@ Needs the owner: 7a2, 7a4, notification recipients, 7c, Kafka TLS/KRaft (with th
 
 **7d. Hardening and scale**
 - ☐ Kafka: TLS/SASL, and upgrade from cp 7.4 (2023) to KRaft mode (no ZooKeeper)
-- ☐ Dead-letter topic for invalid or failing messages
+- ☑ Dead-letter topic for invalid or failing messages
 - ☐ Redis rate-limit store (only with more than one API instance); `(issue_id, environment)` index; `/alerts` cursor
 - ☐ Playwright end-to-end tests; Tailwind 4 (7 dev-only audit findings)
-- ☐ Scrubber gaps: %-encoded text inside messages; the IPv4 rule matches 4-part version numbers
-- ☐ Retry metric is tied to a log event name
+- ☑ Scrubber gaps: %-encoded text inside messages; the IPv4 rule matches 4-part version numbers
+- ☑ Retry metric is tied to a log event name
 
 **7e. ML engine (D32; still shadow-only)**
-- ☐ Make it safe: remove or lock down `/train`, run as non-root, Python 3.9 → supported, dependency audit, `/score` input limits
+- ☑ Make it safe: remove or lock down `/train`, run as non-root, Python 3.9 → supported, dependency audit, `/score` input limits
 - ☐ Redesign for errors (event rate against baseline, new-issue frequency, release changes, time of day), train on real data after a few weeks, compare with the rule-based alerts on the dashboard
 
 **7f. Legacy**
