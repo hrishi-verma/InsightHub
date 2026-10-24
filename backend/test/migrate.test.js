@@ -77,6 +77,9 @@ describe('migration runner', () => {
 
   it('the real migrations are recorded on the test database', async () => {
     const { rows } = await getPool().query(`SELECT version FROM schema_migrations WHERE version LIKE '00%' ORDER BY 1`);
-    expect(rows.map((r) => r.version)).toEqual(['001_error_tracking.sql', '002_retention_audit.sql']);
+    // Every file in database/migrations must have been applied by the runner.
+    const real = fs.readdirSync(path.resolve(__dirname, '..', '..', 'database', 'migrations'))
+      .filter((f) => /^\d{3}_[A-Za-z0-9_-]+\.sql$/.test(f)).sort();
+    expect(rows.map((r) => r.version)).toEqual(real);
   });
 });

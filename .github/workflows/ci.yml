@@ -48,20 +48,19 @@ jobs:
         with:
           node-version: 24
 
-      - name: Create test databases with the full schema
+      - name: Create test databases (legacy tables)
         run: |
           for db in insighthub_test_api insighthub_test_processor; do
             psql -h localhost -U postgres -v ON_ERROR_STOP=1 -qc "CREATE DATABASE $db"
             psql -h localhost -U postgres -d "$db" -v ON_ERROR_STOP=1 -q -f database/init.sql
-            for f in $(ls database/migrations/*.sql | sort); do
-              psql -h localhost -U postgres -d "$db" -v ON_ERROR_STOP=1 -q -f "$f"
-            done
           done
 
-      - name: Backend — install, audit, test
+      - name: Backend — install, migrate (with the real runner), audit, test
         working-directory: backend
         run: |
           npm ci
+          DB_NAME=insighthub_test_api npm run migrate
+          DB_NAME=insighthub_test_processor npm run migrate
           npm audit --omit=dev --audit-level=high
           npm test
 
