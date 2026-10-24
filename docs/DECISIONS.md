@@ -276,3 +276,12 @@ query string, and an email local part over 64 characters leaked its first charac
 (API 128 KB). Its access log drops client IPs, request and response headers, and query strings.
 The backend runs with `TRUST_PROXY=1`, so rate limits see the real client through exactly one proxy.
 **Why:** a smaller attack surface, reproducible rebuilds, and no personal data in logs (CLAUDE.md).
+
+## D32 — The ML engine is ours to fix; nobody is improving it separately
+*2026-10-23 · Active. Corrects the "Why" of D4*
+
+The owner isn't working on the ML model, so D4's "the owner is improving it separately" and the
+matching CLAUDE.md line were wrong. `ml-engine/` is normal roadmap work now. **Still shadow-only
+(D4)**, because the model has never seen real data. Known problems are listed on the roadmap: its
+inputs (latency, log level) mean nothing for error events, `/train` has no auth, it runs as root,
+and Python 3.9 is past end of life.

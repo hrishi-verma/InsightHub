@@ -34,7 +34,8 @@ secure **from the first commit**. "Quick fix now, secure later" is not acceptabl
    files (`docker-compose.yml`, `database/**`, `docs/CONTRACT.md`, root `README.md`) belong to the lead.
 3. **Never push.** Commit only on your own branch. The lead merges.
 4. **No drive-by refactors.** Leave the legacy `/api/logs` pipeline and `ml-engine/` alone unless
-   your brief says otherwise (the owner is improving the ML model themselves).
+   your brief says otherwise. Nobody else is working on the ML model; changes to it go through the
+   roadmap like any other work (D32).
 5. **ML is shadow-only.** The model was trained on synthetic data. Its score may be stored and
    shown (labelled experimental) but must never decide anomalies or alerts.
 6. **New dependencies** must be well-known and maintained, and must be listed in your report.
