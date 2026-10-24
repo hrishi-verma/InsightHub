@@ -57,6 +57,9 @@ services:
       # Legacy /api/logs only. Unset = those routes answer 503.
       SERVICE_TOKEN: ${SERVICE_TOKEN:-}
       DB_HOST: postgres
+      # The backend has no defaults for these (fail closed), so compose must pass them.
+      DB_NAME: insighthub
+      DB_USER: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD}
 
   processor:

@@ -246,3 +246,14 @@ ready for the owner to merge into `v3`.
     9 tables, the project, the user and 3 hypertables back; scratch DB dropped.
   - The admin scripts run inside the backend image.
 - **Waiting on the owner:** VPS, domain, then DEPLOY.md §2–7.
+
+## 2026-10-24 — Full stack run locally (`docker compose up -d --build`)
+- **Bug found:** the backend container refused to start under compose (`DB_NAME`/`DB_USER` missing: the backend
+  has no defaults for them, by design). Every earlier run had used `backend/.env` instead. The production deploy would
+  have failed the same way. Fixed in `docker-compose.yml` (the production override inherits it).
+- All services up: backend `/health` 200, dashboard (production build) 200, processor `healthy`, ML engine 200 inside
+  its container. On macOS, host port 5000 is also held by AirPlay Receiver (Control Center), so `curl localhost:5000`
+  reaches AirPlay (403), not the engine.
+- **Demo data** for the owner: 16 events through the real ingestion API (temporary key, revoked) → 5 issues, 5
+  new-issue alerts and 1 spike alert, all `development`. Checked in Chrome with a throwaway viewer (deleted): overview,
+  issues and alerts render with no console errors.
