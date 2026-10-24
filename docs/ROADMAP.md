@@ -50,12 +50,37 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☐ Backups cron and off-server copies (§7)
 - **Check:** real 500s show on the dashboard, the processor health check stays clean, and only 22/80/443 are open
 
-## ☐ Phase 7 — After launch (as needed)
-- ☐ Dead-letter topic
-- ☐ Redis rate-limit store (only with more than one API instance)
-- ☐ User-management CLI (disable a user, reset a password)
-- ☐ Playwright end-to-end tests
-- ☐ Tailwind 4 migration (7 dev-only audit findings)
-- ☐ `(issue_id, environment)` index; `/alerts` cursor
-- ☐ Decide what to do with the legacy `/api/logs` pipeline
-- ☐ ML retraining on real data (owner)
+## ☐ Phase 7 — Missing pieces (found 2026-10-24, in priority order)
+
+**7a. Before or right after launch: without these, problems go unnoticed**
+- ☐ **Alert notifications** (email first, maybe Slack later): alerts are only seen if someone opens the dashboard
+- ☐ **Monitoring InsightHub itself**: external uptime check on `https://api.<domain>/health`, processor health and disk space, with a notice when they fail
+- ☐ **Data retention**: TimescaleDB retention (e.g. 90 days) + compression on `error_events`; nothing is deleted today
+- ☐ **Off-server backup copies** (DEPLOY.md §7 keeps dumps on the same disk)
+- ☐ **CI**: run the backend, processor and frontend tests and `npm audit` on every push (no CI exists)
+
+**7b. Needed to operate it**
+- ☐ User admin CLI: list, disable, reset password; "log out everywhere"; a password change page
+- ☐ Project and key admin: `create-project`, list keys, a documented key-rotation procedure
+- ☐ Audit trail: record who resolved or ignored an issue (alerts already record who acknowledged them)
+- ☐ A migration runner (new SQL migrations are applied by hand today)
+
+**7c. Product features**
+- ☐ Source maps + releases: browser stacks from Cloudflare Pages are minified, and the website sends no `release`
+- ☐ Release view ("which deploy introduced this"); ignore rules (e.g. ignore an error type); notes or assignment on issues
+- ☐ Search beyond issue titles
+
+**7d. Hardening and scale**
+- ☐ Kafka: TLS/SASL, and upgrade from cp 7.4 (2023) to KRaft mode (no ZooKeeper)
+- ☐ Dead-letter topic for invalid or failing messages
+- ☐ Redis rate-limit store (only with more than one API instance); `(issue_id, environment)` index; `/alerts` cursor
+- ☐ Playwright end-to-end tests; Tailwind 4 (7 dev-only audit findings)
+- ☐ Scrubber gaps: %-encoded text inside messages; the IPv4 rule matches 4-part version numbers
+- ☐ Retry metric is tied to a log event name
+
+**7e. ML engine (D32; still shadow-only)**
+- ☐ Make it safe: remove or lock down `/train`, run as non-root, Python 3.9 → supported, dependency audit, `/score` input limits
+- ☐ Redesign for errors (event rate against baseline, new-issue frequency, release changes, time of day), train on real data after a few weeks, compare with the rule-based alerts on the dashboard
+
+**7f. Legacy**
+- ☐ Decide: retire `/api/logs`, the `logs` topic and tables, the legacy consumer and `legacy/` SDKs, or keep them
