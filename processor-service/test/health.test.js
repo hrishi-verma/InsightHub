@@ -115,7 +115,7 @@ describe('GET /metrics', () => {
     expect(typeof body.last_event_at).toBe('string');
     expect(body.uptime_s).toBeGreaterThanOrEqual(0);
     expect(Object.keys(body).sort()).toEqual([
-      'alerts_raised', 'duplicate', 'failed', 'invalid', 'last_event_at', 'retries', 'started_at', 'stored', 'uptime_s',
+      'alerts_raised', 'dlq_sent', 'duplicate', 'failed', 'invalid', 'last_event_at', 'retries', 'started_at', 'stored', 'uptime_s',
     ]);
   });
 

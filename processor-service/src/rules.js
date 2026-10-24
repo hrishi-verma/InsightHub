@@ -79,7 +79,9 @@ async function applyRules(client, { projectId, issue, event }, rulesConfig) {
     !issue.resolved_at || new Date(event.occurred_at) > new Date(issue.resolved_at);
   if (issue.status === 'resolved' && happenedAfterResolve) {
     await client.query(
-      `UPDATE issues SET status = 'unresolved', resolved_at = NULL WHERE id = $1`,
+      // status_changed_by NULL = changed by the system (audit trail, migration 002).
+      `UPDATE issues SET status = 'unresolved', resolved_at = NULL,
+         status_changed_at = now(), status_changed_by = NULL WHERE id = $1`,
       [issue.id],
     );
     alerts.push(await raise(client, projectId, issue.id, 'regression', {

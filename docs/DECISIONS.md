@@ -338,3 +338,23 @@ and runs in CI. The model file lives in the `/app/models` volume.
 Known and accepted: loading the model unpickles it, so anyone who can write to that volume can run code
 in the container (the volume is internal only). Sliding-window stats are per gunicorn worker.
 **Why:** the old engine let anyone on the network replace the model, ran as root on an end-of-life Python, and had no input limits.
+
+## D38 — Alert notifications and a dead-letter topic (processor)
+*2026-10-24 · Active (roadmap 7a1 code, 7d13). Recipients still to be configured by the owner*
+
+- **Notifications:** sent after the alert's transaction commits, fire-and-forget with a 5 s timeout.
+  Channels are off until configured: a Slack-compatible webhook (`NOTIFY_WEBHOOK_URL`) and/or SMTP email
+  (`SMTP_*`, `NOTIFY_EMAIL_*`), with TLS required for remote SMTP. URLs must be https (http only for
+  localhost). Content is the alert kind, project id, the issue title (already scrubbed; cleaned of control
+  characters and cut to 200 chars), spike numbers and a dashboard link. **Nothing else from the event.** At most
+  20 per channel per hour; anything over that is counted and mentioned in the next message. Logs never hold
+  URLs, addresses or titles.
+- **Dead-letter topic** `error-events-dlq`: invalid or permanently failing messages leave a **metadata-only**
+  record (reason, partition, offset, size), never the value, which may not have been scrubbed. A DLQ failure
+  never blocks the partition.
+- The retry metric uses an `onRetry` hook. An automatic reopen records `status_changed_by = NULL` (the system).
+- **nodemailer 10.0.16** (2026-10-07). An accepted **moderate** advisory (addressparser, GHSA-8c8m-p3m8-cjg8,
+  GHSA-m943-m63m-w62w, GHSA-85x2-q946-cp5h) only matters for addresses with comments, quotes, `;` or `>`, which
+  our address validation rejects. The fix (10.2.x) is newer than 2 weeks, so **move to it after 2026-11-04**.
+**Why:** without notifications, alerts were only seen by someone looking at the dashboard. Without a DLQ, bad
+messages were only visible as log lines.

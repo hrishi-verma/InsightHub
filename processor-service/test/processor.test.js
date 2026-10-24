@@ -31,6 +31,12 @@ afterAll(async () => { await pool.end(); });
 beforeEach(async () => { logs = []; projectId = await resetDb(pool); });
 
 describe('storing events', () => {
+  it('returns what notifications need and nothing more (title, project)', async () => {
+    const r = await processor()(kafkaMessage(projectId, makeEvent()));
+    expect(r).toMatchObject({ status: 'stored', projectId, title: expect.stringContaining('TypeError') });
+    expect(Object.keys(r).sort()).toEqual(['alerts', 'issueId', 'projectId', 'status', 'title']);
+  });
+
   it('creates an issue and stores the event with every field', async () => {
     const event = makeEvent({ tags: { area: 'checkout' } });
     const r = await processor()(kafkaMessage(projectId, event));
@@ -126,8 +132,10 @@ describe('alert rules', () => {
     const { issueId } = await p(kafkaMessage(projectId, makeEvent()));
     await pool.query(`UPDATE issues SET status = 'resolved', resolved_at = now() - interval '1 minute' WHERE id = $1`, [issueId]);
     await p(kafkaMessage(projectId, makeEvent({ release: 'fix2' })));
-    const issue = await one('SELECT status, resolved_at FROM issues WHERE id = $1', [issueId]);
-    expect(issue).toEqual({ status: 'unresolved', resolved_at: null });
+    const issue = await one('SELECT status, resolved_at, status_changed_at, status_changed_by FROM issues WHERE id = $1', [issueId]);
+    expect(issue).toMatchObject({ status: 'unresolved', resolved_at: null, status_changed_by: null });
+    // Audit trail: the system reopened it just now (status_changed_by NULL = system).
+    expect(Date.now() - issue.status_changed_at.getTime()).toBeLessThan(60000);
     expect(await alertKinds()).toEqual(['new_issue', 'regression']);
     const reg = await one(`SELECT details FROM issue_alerts WHERE kind = 'regression'`);
     expect(reg.details.release).toBe('fix2');
@@ -268,6 +276,17 @@ describe('reliability', () => {
     });
     expect((await p(kafkaMessage(projectId, makeEvent()))).status).toBe('stored');
     expect(logs.filter((l) => l.event === 'event_retry')).toHaveLength(2);
+  });
+
+  it('calls onRetry once per retry, and a throwing hook does not break processing', async () => {
+    const err = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    let calls = 0;
+    const p = createProcessor({
+      pool: flakyPool(2, err), config, mlScore: async () => NONE, log, retry: { baseMs: 5 },
+      onRetry: () => { calls += 1; throw new Error('hook bug'); },
+    });
+    expect((await p(kafkaMessage(projectId, makeEvent()))).status).toBe('stored');
+    expect(calls).toBe(2);
   });
 
   it('stops retrying on shutdown so the offset is not committed', async () => {

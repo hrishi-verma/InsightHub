@@ -73,6 +73,8 @@ Needs the owner: 7a2, 7a4, notification recipients, 7c, Kafka TLS/KRaft (with th
 - ☐ Release view ("which deploy introduced this"); ignore rules (e.g. ignore an error type); notes or assignment on issues
 - ☐ Search beyond issue titles
 
+- ☐ Move nodemailer to 10.2.x after 2026-11-04 (moderate advisory, not reachable today; D38)
+
 **7d. Hardening and scale**
 - ☐ Kafka: TLS/SASL, and upgrade from cp 7.4 (2023) to KRaft mode (no ZooKeeper)
 - ☐ Dead-letter topic for invalid or failing messages

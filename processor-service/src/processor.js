@@ -21,11 +21,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Builds the function that handles one Kafka message from `error-events`.
- * Result: { status: 'stored' | 'duplicate' | 'invalid' | 'failed', alerts?, issueId? }.
+ * Result: { status: 'stored' | 'duplicate' | 'invalid' | 'failed', alerts?, issueId?, title?, reason? }.
  * It only throws ShutdownError (DB still unavailable while shutting down), so the offset
  * is not committed and the message is redelivered later.
  */
-function createProcessor({ pool, config, mlScore, log, retry = {} }) {
+function createProcessor({ pool, config, mlScore, log, retry = {}, onRetry = () => {} }) {
   const baseMs = retry.baseMs ?? 200;
   const maxMs = retry.maxMs ?? 30000;
   const maxAttempts = retry.maxAttempts ?? Infinity; // block rather than lose data while the DB is down
@@ -44,7 +44,7 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
       await countEvent(client, issue.id, msg.event);
       const alerts = await applyRules(client, { projectId: msg.project_id, issue, event: msg.event }, config.rules);
       await client.query('COMMIT');
-      return { status: 'stored', issueId: issue.id, alerts };
+      return { status: 'stored', issueId: issue.id, alerts, title: desc.title, projectId: msg.project_id };
     } catch (err) {
       // A connection-level failure means this client is unusable; destroy it instead of pooling it.
       broken = isTransient(err);
@@ -59,7 +59,7 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
     const parsed = parseMessage(kafkaMessage, { maxBytes: config.kafka.maxMessageBytes });
     if (!parsed.ok) {
       log('event_invalid', { reason: parsed.reason });
-      return { status: 'invalid' };
+      return { status: 'invalid', reason: parsed.reason };
     }
     const msg = parsed.message;
     const ids = { event_id: msg.event.event_id, project_id: msg.project_id };
@@ -71,7 +71,7 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
       ml = await mlScore(msg.project_id, msg.event); // outside the transaction; never throws
     } catch (err) {
       log('event_failed', { ...ids, reason: 'describe', error: err && err.name });
-      return { status: 'failed' };
+      return { status: 'failed', reason: 'describe' };
     }
 
     for (let attempt = 1; ; attempt++) {
@@ -85,7 +85,7 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
         if (!isTransient(err)) {
           // e.g. 23503 = project_id doesn't exist. Logged by code only: pg details can echo values.
           log('event_failed', { ...ids, reason: 'permanent db error', code });
-          return { status: 'failed' };
+          return { status: 'failed', reason: 'permanent db error' };
         }
         if (attempt >= maxAttempts || shouldStop()) {
           log('event_retry_aborted', { ...ids, code, attempt });
@@ -93,6 +93,7 @@ function createProcessor({ pool, config, mlScore, log, retry = {} }) {
         }
         const wait = Math.min(maxMs, baseMs * 2 ** (attempt - 1));
         log('event_retry', { ...ids, code, attempt, wait_ms: wait });
+        try { onRetry(); } catch { /* a metrics hook must never break processing */ }
         await sleep(wait);
         await heartbeat().catch(() => {});
       }

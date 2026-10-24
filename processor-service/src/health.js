@@ -9,7 +9,7 @@ const STARTUP_GRACE_MS = 60000; // joining the group takes a while
 /** Counters since start. Numbers and timestamps only; never message content, ids or errors. */
 function createMetrics(now = () => Date.now()) {
   const startedAt = now();
-  const m = { stored: 0, duplicate: 0, invalid: 0, failed: 0, retries: 0, alerts_raised: 0, lastEventAt: null };
+  const m = { stored: 0, duplicate: 0, invalid: 0, failed: 0, retries: 0, alerts_raised: 0, dlq_sent: 0, lastEventAt: null };
   return {
     // Feed it every processMessage result.
     record(result) {
@@ -21,10 +21,11 @@ function createMetrics(now = () => Date.now()) {
       if (status === 'stored' && Array.isArray(result.alerts)) m.alerts_raised += result.alerts.length;
     },
     retry() { m.retries += 1; },
+    dlqSent() { m.dlq_sent += 1; },
     snapshot() {
       return {
         stored: m.stored, duplicate: m.duplicate, invalid: m.invalid, failed: m.failed,
-        retries: m.retries, alerts_raised: m.alerts_raised,
+        retries: m.retries, alerts_raised: m.alerts_raised, dlq_sent: m.dlq_sent,
         started_at: new Date(startedAt).toISOString(),
         last_event_at: m.lastEventAt === null ? null : new Date(m.lastEventAt).toISOString(),
         uptime_s: Math.floor((now() - startedAt) / 1000),

@@ -5,6 +5,9 @@ const { log } = require('./logger');
 const { createKafka, createKafkaCheck, runErrorConsumer } = require('./kafka');
 const { runLegacyConsumer } = require('./legacyLogs');
 const { createProcessor } = require('./processor');
+const { createPipeline } = require('./pipeline');
+const { createNotifier } = require('./notify');
+const { createDlq } = require('./dlq');
 const { createMlShadow } = require('./mlShadow');
 const { createHealthServer, createMetrics } = require('./health');
 
@@ -29,17 +32,14 @@ async function main() {
   const consumers = [];
   const kafka = createKafka(config.kafka);
   const metrics = createMetrics();
-  // Count retries from the existing log call instead of changing the processor.
-  const countingLog = (event, fields) => {
-    if (event === 'event_retry') metrics.retry();
-    log(event, fields);
-  };
-  const rawProcess = createProcessor({ pool, config, log: countingLog, mlScore: createMlShadow(config.ml, { log }) });
-  const processMessage = async (...args) => {
-    const result = await rawProcess(...args);
-    metrics.record(result);
-    return result;
-  };
+  const rawProcess = createProcessor({
+    pool, config, log, mlScore: createMlShadow(config.ml, { log }), onRetry: metrics.retry,
+  });
+  const notifier = createNotifier({ config: config.notify, log });
+  const processMessage = createPipeline({ rawProcess, metrics, notifier });
+  const dlq = config.dlq.enabled
+    ? createDlq({ kafka, topic: config.dlq.topic, log, timeoutMs: config.dlq.timeoutMs, onSent: metrics.dlqSent })
+    : null;
   let errorConsumer = null; // set once runErrorConsumer resolves; the health server starts first
   const health = createHealthServer({
     host: config.health.host,
@@ -70,6 +70,7 @@ async function main() {
     timer.unref();
     // disconnect() waits for in-flight messages, which then commit their offsets.
     await Promise.allSettled(consumers.map((c) => c.disconnect()));
+    if (dlq) await dlq.disconnect().catch(() => {});
     await health.close().catch(() => {});
     await pool.end().catch(() => {});
     process.exit(0);
@@ -78,7 +79,7 @@ async function main() {
   process.on('SIGINT', () => shutdown('SIGINT'));
 
   errorConsumer = await runErrorConsumer({
-    kafka, kafkaConfig: config.kafka, processMessage, log, isStopping: () => stopping,
+    kafka, kafkaConfig: config.kafka, processMessage, log, isStopping: () => stopping, dlq,
   });
   consumers.push(errorConsumer);
   log('consumer_started', { topic: config.kafka.errorTopic, group: config.kafka.errorGroup, ml_shadow: config.ml.enabled });

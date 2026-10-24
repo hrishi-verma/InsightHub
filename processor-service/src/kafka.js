@@ -46,12 +46,33 @@ function createKafkaCheck(kafka, { isStopping, timeoutMs = 1800 }) {
 }
 
 /**
+ * Handles one message: process, dead-letter it if it was skipped, then commit the offset.
+ * The DLQ is best-effort (bounded, failures only logged), so it can never hold the partition.
+ */
+function createMessageHandler({ processMessage, dlq, commit, log, isStopping }) {
+  return async function handle({ topic, partition, message }) {
+    // The library has no per-message heartbeat; liveness is covered by the poll interval below.
+    const result = await processMessage(message, { shouldStop: isStopping });
+    if (dlq && result && (result.status === 'invalid' || result.status === 'failed')) {
+      await dlq.send({ reason: result.reason || result.status, partition, offset: message.offset, message });
+    }
+    const next = (BigInt(message.offset) + 1n).toString();
+    try {
+      await commit([{ topic, partition, offset: next }]);
+    } catch (err) {
+      // The message is stored; at worst it's redelivered and deduplicated.
+      log('commit_failed', { partition, error: err && err.name });
+    }
+  };
+}
+
+/**
  * Consumes `error-events`. Offsets are committed manually, one message at a time and only after
  * processMessage returns (i.e. after the DB transaction committed, or the message was judged
  * invalid/permanently failing and skipped). A redelivery after a crash is harmless because
  * storing is idempotent on (event_id, occurred_at).
  */
-async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isStopping }) {
+async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isStopping, dlq = null }) {
   // No CRASH event in this client (consumer.events throws), so there is no crash log line.
   const consumer = kafka.consumer({
     kafkaJS: {
@@ -70,19 +91,11 @@ async function runErrorConsumer({ kafka, kafkaConfig, processMessage, log, isSto
   await consumer.subscribe({ topics: [kafkaConfig.errorTopic] });
   await consumer.run({
     partitionsConsumedConcurrently: kafkaConfig.concurrency, // bounded parallelism; one partition stays in order
-    eachMessage: async ({ topic, partition, message }) => {
-      // The library has no per-message heartbeat; liveness is covered by the poll interval above.
-      await processMessage(message, { shouldStop: isStopping });
-      const next = (BigInt(message.offset) + 1n).toString();
-      try {
-        await consumer.commitOffsets([{ topic, partition, offset: next }]);
-      } catch (err) {
-        // The message is stored; at worst it's redelivered and deduplicated.
-        log('commit_failed', { partition, error: err && err.name });
-      }
-    },
+    eachMessage: createMessageHandler({
+      processMessage, dlq, log, isStopping, commit: (offsets) => consumer.commitOffsets(offsets),
+    }),
   });
   return consumer;
 }
 
-module.exports = { createKafka, createKafkaCheck, runErrorConsumer };
+module.exports = { createKafka, createKafkaCheck, createMessageHandler, runErrorConsumer };

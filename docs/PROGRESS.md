@@ -286,3 +286,11 @@ TimescaleDB warned that `event_id`, part of the dedup key, wasn't in the compres
 `003_compression_order.sql` (orderby `occurred_at DESC, event_id`, only while nothing is compressed yet).
 Applied with `npm run migrate` to `insighthub`, `insighthub_test_api` and `insighthub_test_processor`. A fresh-DB
 check shows the ordering `occurred_at`, `event_id`. Scratch DBs dropped.
+
+## 2026-10-24 — Phase 7: alert notifications, dead-letter topic, retry hook (D38)
+Done by the executor, reviewed by me. **Checked by:** `processor-service: npm test` → 129 passed; `npm audit` (high) clean,
+one accepted moderate advisory (D38). **Live check:** a host processor with a local webhook receiver got exactly one
+`{text}` for a new issue (title + dashboard link; no stack or path), and logs held no URL or title. An invalid
+message produced a metadata-only DLQ record without its value. The live check also found and fixed a bug: Postgres bigint ids
+arrive as strings, which dropped the dashboard link. Test rows were cleaned up.
+**Full stack rebuilt with all of today's changes:** every service up, the processor healthy, dashboard 200, `/_next/image` 404, API ok.

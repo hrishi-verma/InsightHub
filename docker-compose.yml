@@ -79,6 +79,19 @@ services:
       ML_ENGINE_URL: http://ml-engine:5000
       # Shadow scoring only; never affects alerts (CLAUDE.md rule 5).
       ML_SHADOW: ${ML_SHADOW:-off}
+      # Alert notifications and dead-letter topic; empty = off / default (see processor-service/.env.example).
+      DLQ: ${DLQ:-}
+      DLQ_TOPIC: ${DLQ_TOPIC:-}
+      NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
+      NOTIFY_MAX_PER_HOUR: ${NOTIFY_MAX_PER_HOUR:-}
+      DASHBOARD_URL: ${DASHBOARD_URL:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      NOTIFY_EMAIL_FROM: ${NOTIFY_EMAIL_FROM:-}
+      NOTIFY_EMAIL_TO: ${NOTIFY_EMAIL_TO:-}
 
   ml-engine:
     build: ./ml-engine
