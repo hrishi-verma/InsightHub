@@ -279,3 +279,10 @@ hashes. Contract §3/§4/§5 amended.
 ## 2026-10-24 — Phase 7: ML engine made safe (D37)
 Done by the executor; re-checked by me: pytest 32 passed, `pip-audit` no known vulnerabilities, rebuilt container runs as
 uid 10001, live `/score` 200, `/train` 404, unknown field 400, 20 KB body 413. CI gained an `ml-engine` job (audit + tests).
+
+## 2026-10-24 — CI schema dry run → migration 003
+Loading the schema into a fresh database exactly as CI does (`init.sql` + `migrations/*.sql` via psql) worked, and
+TimescaleDB warned that `event_id`, part of the dedup key, wasn't in the compression ordering. Added
+`003_compression_order.sql` (orderby `occurred_at DESC, event_id`, only while nothing is compressed yet).
+Applied with `npm run migrate` to `insighthub`, `insighthub_test_api` and `insighthub_test_processor`. A fresh-DB
+check shows the ordering `occurred_at`, `event_id`. Scratch DBs dropped.
