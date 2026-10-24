@@ -1,0 +1,93 @@
+# Runs every test suite and a dependency audit on each push and pull request (roadmap 7a5).
+name: CI
+
+on:
+  push:
+    branches: [main, production]
+  pull_request:
+
+# Read-only token: this workflow never writes to the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Same image as production (docker-compose.prod.yml, D31).
+        image: timescale/timescaledb@sha256:6343bdc87ca132c6b53acb26113a6bad1821d188fa39975a745f32ddd9757634
+        env:
+          # Throwaway database that only lives for this job; not a real secret.
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: ci-${{ github.run_id }}
+      KAFKA_BROKER: localhost:9093
+      PGPASSWORD: ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Create test databases with the full schema
+        run: |
+          for db in insighthub_test_api insighthub_test_processor; do
+            psql -h localhost -U postgres -v ON_ERROR_STOP=1 -qc "CREATE DATABASE $db"
+            psql -h localhost -U postgres -d "$db" -v ON_ERROR_STOP=1 -q -f database/init.sql
+            for f in $(ls database/migrations/*.sql | sort); do
+              psql -h localhost -U postgres -d "$db" -v ON_ERROR_STOP=1 -q -f "$f"
+            done
+          done
+
+      - name: Backend — install, audit, test
+        working-directory: backend
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm test
+
+      - name: Processor — install, audit, test
+        working-directory: processor-service
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm test
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Dashboard — install, audit, test, build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://api.example.test
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm test
+          npm run build

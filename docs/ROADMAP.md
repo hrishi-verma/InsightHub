@@ -50,7 +50,10 @@ Status: ☐ todo · ◐ in progress · ☑ done
 - ☐ Backups cron and off-server copies (§7)
 - **Check:** real 500s show on the dashboard, the processor health check stays clean, and only 22/80/443 are open
 
-## ☐ Phase 7 — Missing pieces (found 2026-10-24, in priority order)
+## ◐ Phase 7 — Missing pieces (found 2026-10-24, in priority order)
+Being built now: 7a1 (code, off until configured), 7a3, 7a5, 7b6–9, 7d13, scrubber gaps, retry hook, 7e15.
+Needs the owner: 7a2, 7a4, notification recipients, 7c, Kafka TLS/KRaft (with the VPS), 7e16, 7f.
+
 
 **7a. Before or right after launch: without these, problems go unnoticed**
 - ☐ **Alert notifications** (email first, maybe Slack later): alerts are only seen if someone opens the dashboard

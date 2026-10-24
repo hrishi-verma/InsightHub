@@ -257,3 +257,9 @@ ready for the owner to merge into `v3`.
 - **Demo data** for the owner: 16 events through the real ingestion API (temporary key, revoked) → 5 issues, 5
   new-issue alerts and 1 spike alert, all `development`. Checked in Chrome with a throwaway viewer (deleted): overview,
   issues and alerts render with no console errors.
+
+## 2026-10-24 — Phase 7: CI and a critical Next.js fix
+- `.github/workflows/ci.yml` (D34). The frontend job checked locally first: tests 24 passed, build ✓.
+- That check's `npm audit` found a **critical Next.js advisory** (RCE via the image optimizer with SVG; Server Actions
+  DoS) → `next` 16.3.8 → **16.4.3**, plus `images.unoptimized: true` (D33). Checked: audit 0 vulnerabilities,
+  `npm test` 24 passed, production build ✓, `/_next/image` → 404 on `next start`.

@@ -285,3 +285,22 @@ matching CLAUDE.md line were wrong. `ml-engine/` is normal roadmap work now. **S
 (D4)**, because the model has never seen real data. Known problems are listed on the roadmap: its
 inputs (latency, log level) mean nothing for error events, `/train` has no auth, it runs as root,
 and Python 3.9 is past end of life.
+
+## D33 — Next.js 16.4.3 the day it shipped; image optimizer off
+*2026-10-24 · Active. Supersedes the "≈10 days old" habit in D12 for security fixes*
+
+`npm audit` flagged a **critical** advisory in 16.3.8: unauthenticated RCE in the image optimization API
+when SVGs are involved, plus a Server Actions DoS. The fix, 16.4.3, was released the same day. A critical
+security fix outweighs the habit of waiting for releases to age. The dashboard uses no `next/image` and no
+Server Actions, but the `/_next/image` endpoint exists by default, so `images.unoptimized: true` turns it
+off. It now returns 404, checked against a production build.
+**Why:** remove the attack surface even if the next advisory lands before an upgrade.
+
+## D34 — CI on every push (GitHub Actions)
+*2026-10-24 · Active (roadmap 7a5)*
+
+`.github/workflows/ci.yml`: backend and processor tests against a throwaway TimescaleDB (the same pinned
+image as production, with the schema loaded from `database/`), the dashboard's tests and production build, and
+`npm audit --omit=dev --audit-level=high` for all three. Read-only token; checkout without persisted
+credentials.
+**Why:** tests only ran when someone remembered to run them. The audit step is what caught D33.

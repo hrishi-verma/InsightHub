@@ -31,6 +31,9 @@ export default function config(phase) {
     reactStrictMode: true,
     poweredByHeader: false,
     productionBrowserSourceMaps: false,
+    // The app shows no images; turning the optimizer off removes the /_next/image endpoint and its
+    // attack surface (e.g. the 2026-10 SVG RCE advisory, fixed in next 16.4.3).
+    images: { unoptimized: true },
     // Always defined, so the bundler inlines it and drops mock code from production builds.
     env: { NEXT_PUBLIC_USE_MOCKS: dev && process.env.NEXT_PUBLIC_USE_MOCKS === 'true' ? 'true' : 'false' },
     async headers() {
