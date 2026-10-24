@@ -1,7 +1,11 @@
+import os
+
 import numpy as np
-import pandas as pd
 from sklearn.ensemble import IsolationForest
 import joblib
+
+# Same location the API reads (api.py); override with MODEL_DIR.
+MODEL_PATH = os.path.join(os.environ.get('MODEL_DIR', 'models'), 'anomaly_model.pkl')
 
 def train_anomaly_model():
     """Train Isolation Forest model for anomaly detection"""
@@ -15,8 +19,9 @@ def train_anomaly_model():
     model.fit(normal_data)
     
     # Save model
-    joblib.dump(model, 'anomaly_model.pkl')
-    print("Model trained and saved successfully")
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    joblib.dump(model, MODEL_PATH)
+    print(f"Model trained and saved to {MODEL_PATH}")
 
 if __name__ == '__main__':
     train_anomaly_model()

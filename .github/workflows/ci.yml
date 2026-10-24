@@ -91,3 +91,21 @@ jobs:
           npm audit --omit=dev --audit-level=high
           npm test
           npm run build
+
+  ml-engine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: ML engine — install, audit, test
+        working-directory: ml-engine
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --only-binary=:all: -r requirements.txt pytest pip-audit
+          .venv/bin/pip-audit -r requirements.txt --no-deps --disable-pip
+          .venv/bin/python -m pytest -q tests

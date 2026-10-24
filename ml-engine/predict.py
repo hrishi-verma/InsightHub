@@ -1,8 +1,12 @@
+import os
+
 import joblib
 import numpy as np
 
+MODEL_PATH = os.path.join(os.environ.get('MODEL_DIR', 'models'), 'anomaly_model.pkl')
+
 class AnomalyDetector:
-    def __init__(self, model_path='anomaly_model.pkl'):
+    def __init__(self, model_path=MODEL_PATH):
         self.model = joblib.load(model_path)
     
     def extract_features(self, log):

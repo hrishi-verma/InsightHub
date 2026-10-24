@@ -16,10 +16,45 @@ The ML engine analyzes incoming logs to detect anomalies based on latency patter
 
 ## Tech Stack
 
-- **Language**: Python 3.9+
+- **Language**: Python 3.12
 - **ML Library**: scikit-learn
-- **Data Processing**: pandas, numpy
+- **Data Processing**: numpy
 - **Model Storage**: joblib
+
+## Status: shadow-only
+
+This service is **shadow-only** (docs/DECISIONS.md D4, D32). Its score is stored and shown as
+experimental, and must never decide an anomaly or an alert. The model was trained on synthetic
+data, and its inputs (latency and a level number) are not meaningful for error events yet:
+the processor sends no latency at all. Treat the score as noise until the model is redesigned.
+
+## Security
+
+- **No `/train` endpoint.** Anyone who could reach it could overwrite the model. Training is
+  offline only: run `python train_model.py`, which writes `models/anomaly_model.pkl`
+  (`MODEL_DIR` changes the folder). The API loads the same file.
+- **Strict input checks on `/score`:** body at most 16 KB (413 otherwise); must be a JSON
+  object (400); only `service`, `level`, `message` and optional `latency_ms` are allowed;
+  `service` is 1-100 chars of `A-Za-z0-9._-`; `level` is one of DEBUG, INFO, WARN, WARNING, ERROR,
+  FATAL, CRITICAL; `message` is at most 1000 chars. Errors are short JSON and never echo input
+  or show stack traces.
+- **`/stats/<service>`** checks the name the same way and never creates state.
+- **Bounded memory:** at most 1000 services are tracked (least recently used is dropped) and
+  2000 events per service.
+- **Container:** gunicorn (2 workers, 10 s timeout), Python 3.12, non-root user, pinned
+  dependencies, no build tools in the final image. It works with a read-only root filesystem if
+  `/app/models` is a writable volume. The model file is a pickle, so only trusted people may write to
+  that volume.
+- There is **no authentication**: keep port 5000 off the public internet (compose binds it to
+  localhost). Each gunicorn worker keeps its own window stats, so `/stats` is per worker.
+
+## Running tests
+
+```bash
+python3.12 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt pytest
+python -m pytest tests
+```
 
 ## Installation
 
@@ -38,7 +73,7 @@ import joblib
 
 model = IsolationForest(contamination=0.02, random_state=42)
 model.fit(training_data)
-joblib.dump(model, 'anomaly_model.pkl')
+joblib.dump(model, 'models/anomaly_model.pkl')
 ```
 
 ### predict.py
@@ -176,16 +211,6 @@ Get sliding window statistics for a service.
   "avg_latency": 450.5,
   "max_latency": 2500,
   "min_latency": 50
-}
-```
-
-### POST /train
-Retrain the Isolation Forest model with new data.
-
-**Request:**
-```json
-{
-  "data": [[100, 0], [150, 0], [2000, 2]]
 }
 ```
 

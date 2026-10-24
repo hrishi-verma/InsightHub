@@ -275,3 +275,7 @@ scratch DB applied 001+002, and a second run applied nothing (scratch DB dropped
 retention 90 days. Applied to `insighthub`, `insighthub_test_api` and `insighthub_test_processor`. Rebuilt the backend
 container: `node scripts/migrate.js` → "Nothing pending."; `list-keys` and `users list` run inside it and print no
 hashes. Contract §3/§4/§5 amended.
+
+## 2026-10-24 — Phase 7: ML engine made safe (D37)
+Done by the executor; re-checked by me: pytest 32 passed, `pip-audit` no known vulnerabilities, rebuilt container runs as
+uid 10001, live `/score` 200, `/train` 404, unknown field 400, 20 KB body 413. CI gained an `ml-engine` job (audit + tests).

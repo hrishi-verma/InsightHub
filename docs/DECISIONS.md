@@ -326,3 +326,15 @@ Before scrubbing, `%20 %23 %26 %2B %2F %3A %3D %3F %40` are decoded, so `jane%40
   Disabling a user or resetting their password ends their sessions.
 **Why:** without retention the database grows forever and keeps error data longer than needed. The rest is basic
 operating ability that was missing.
+
+## D37 — ML engine made safe to run (still shadow-only)
+*2026-10-24 · Active (roadmap 7e15). Follows D32*
+
+`/train` removed (training is offline via `train_model.py`). `/score` takes at most 16 KB and only
+`service` / `level` / `message` / optional `latency_ms`, with strict validation. Errors are JSON with no input
+echo. The number of tracked services is capped. Runs under gunicorn with 2 workers on Python 3.12, as uid
+10001, with no build tools in the image. Dependencies are pinned (all ≥ 2 weeks old); `pip-audit` is clean
+and runs in CI. The model file lives in the `/app/models` volume.
+Known and accepted: loading the model unpickles it, so anyone who can write to that volume can run code
+in the container (the volume is internal only). Sliding-window stats are per gunicorn worker.
+**Why:** the old engine let anyone on the network replace the model, ran as root on an end-of-life Python, and had no input limits.
