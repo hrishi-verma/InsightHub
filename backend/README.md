@@ -36,7 +36,17 @@ npm run create-user -- --email you@example.com --role admin      # asks for the 
 npm run create-key  -- --project education-enlightened --kind secret
 npm run create-key  -- --project education-enlightened --kind public --origin https://example.com
 npm run revoke-key  -- --prefix ih_pk_abc123
+npm run create-project -- --slug my-site --name "My Site"
+npm run list-keys   [-- --project my-site]                        # prefixes and origins, never hashes
+npm run migrate     [-- --dry-run]                                # apply pending database/migrations/*.sql
+npm run users -- list
+npm run users -- disable|enable|logout --email you@example.com
+npm run users -- reset-password --email you@example.com           # asks for the new password (hidden)
 ```
+
+- `migrate` applies each new file in its own transaction and records it in `schema_migrations`. A
+  failing file is rolled back and the command exits non-zero. `MIGRATIONS_DIR` overrides the folder.
+- `users disable` and `users reset-password` also end that user's sessions. `logout` only ends sessions.
 
 - Keys are printed **once**. Only their SHA-256 hash is stored. Put secret keys (`ih_sk_…`) only
   on servers. Public keys (`ih_pk_…`) go in browsers and work only from their `--origin`s.

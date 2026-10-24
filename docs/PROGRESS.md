@@ -268,3 +268,10 @@ ready for the owner to merge into `v3`.
 `backend/src/services/scrub.js`: decodes the escapes that matter for scrubbing, plus tests (percent-encoded email,
 query, credential; unrelated `%` untouched; dotted-number behaviour pinned). **Checked by:** scrub + events tests
 69 passed; fuzz worst 3.7 ms per 64 KB.
+
+## 2026-10-24 — Phase 7: migrations, retention, audit trail, admin CLIs (D36)
+Done by the executor; reviewed and re-checked by me. **Checked by:** `backend: npm test` → 150 passed. The runner on a
+scratch DB applied 001+002, and a second run applied nothing (scratch DB dropped). Policies: compression after 14 days,
+retention 90 days. Applied to `insighthub`, `insighthub_test_api` and `insighthub_test_processor`. Rebuilt the backend
+container: `node scripts/migrate.js` → "Nothing pending."; `list-keys` and `users list` run inside it and print no
+hashes. Contract §3/§4/§5 amended.

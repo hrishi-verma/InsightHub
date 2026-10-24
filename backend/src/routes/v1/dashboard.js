@@ -16,7 +16,8 @@ const ISSUE_SORTS = {
 };
 
 const ISSUE_COLUMNS = `i.id, p.slug AS project, i.fingerprint, i.source, i.error_type, i.title, i.culprit,
-  i.status, i.first_seen, i.last_seen, i.event_count, i.last_release`;
+  i.status, i.first_seen, i.last_seen, i.event_count, i.last_release,
+  i.status_changed_at, u.email AS status_changed_by`;
 
 function parseQuery(schema, query) {
   const parsed = schema.safeParse(query);
@@ -64,6 +65,7 @@ function createDashboardRouter({ pool, sessions }) {
   async function loadIssue(id, projectId) {
     const { rows } = await pool.query(
       `SELECT ${ISSUE_COLUMNS} FROM issues i JOIN projects p ON p.id = i.project_id
+         LEFT JOIN users u ON u.id = i.status_changed_by
         WHERE i.id = $1 AND ($2::int IS NULL OR i.project_id = $2)`,
       [id, projectId],
     );
@@ -114,6 +116,7 @@ function createDashboardRouter({ pool, sessions }) {
                   GROUP BY issue_id ORDER BY n DESC, issue_id DESC LIMIT 5) t
            JOIN issues i ON i.id = t.issue_id
            JOIN projects p ON p.id = i.project_id
+           LEFT JOIN users u ON u.id = i.status_changed_by
           ORDER BY t.n DESC, i.id DESC`,
         params,
       ),
@@ -168,6 +171,7 @@ function createDashboardRouter({ pool, sessions }) {
     const { rows } = await pool.query(
       `SELECT ${ISSUE_COLUMNS}, ${sort.col}::text AS cursor_value
          FROM issues i JOIN projects p ON p.id = i.project_id
+         LEFT JOIN users u ON u.id = i.status_changed_by
         WHERE ${where.join(' AND ')}
         ORDER BY ${sort.col} DESC, i.id DESC
         LIMIT $${params.length}`,
@@ -239,9 +243,12 @@ function createDashboardRouter({ pool, sessions }) {
     const { rowCount } = await pool.query(
       `UPDATE issues
           SET status = $2,
-              resolved_at = CASE WHEN $2 = 'resolved' THEN coalesce(resolved_at, now()) ELSE NULL END
+              resolved_at = CASE WHEN $2 = 'resolved' THEN coalesce(resolved_at, now()) ELSE NULL END,
+              -- Audit trail: only a real change replaces who/when.
+              status_changed_at = CASE WHEN status IS DISTINCT FROM $2 THEN now() ELSE status_changed_at END,
+              status_changed_by = CASE WHEN status IS DISTINCT FROM $2 THEN $4::int ELSE status_changed_by END
         WHERE id = $1 AND ($3::int IS NULL OR project_id = $3)`,
-      [id, body.data.status, projectId],
+      [id, body.data.status, projectId, req.user.id],
     );
     if (rowCount === 0) throw new ApiError('NOT_FOUND', 'Issue not found');
     res.json({ issue: serialize.issue(await loadIssue(id, projectId)) });

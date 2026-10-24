@@ -11,18 +11,31 @@ This folder belongs to the lead. Agents don't change the schema (see `CLAUDE.md`
 | File | What it creates |
 | --- | --- |
 | `init.sql` | Legacy log tables: `logs` and `log_aggregates` (hypertables) |
+| `migrations/002_retention_audit.sql` | Compression (after 14 days) and retention (90 days) for `error_events`; `issues.status_changed_at` / `status_changed_by` |
 | `migrations/001_error_tracking.sql` | Error tracking: `projects`, `api_keys`, `users`, `sessions`, `issues`, `error_events` (hypertable on `occurred_at`), `issue_alerts`. Seeds the `education-enlightened` project |
 
-On a **fresh** database, docker compose runs both files once, in that order (they're mounted
-into `/docker-entrypoint-initdb.d/`). They don't run again on an existing volume, so a new
-migration on an existing database has to be applied by hand:
+On a **fresh** database, docker compose runs `init.sql` and `001` once (they're mounted into
+`/docker-entrypoint-initdb.d/`). They don't run again on an existing volume. **All** migrations,
+fresh or existing, are applied by the runner, which remembers what it has applied
+(table `schema_migrations`) and skips those:
 
 ```bash
-docker compose exec -T postgres psql -U postgres -d insighthub < database/migrations/00N_name.sql
+cd backend && npm run migrate -- --dry-run   # list pending files
+cd backend && npm run migrate
+docker compose exec backend node scripts/migrate.js   # inside the stack
 ```
 
-Every migration uses `IF NOT EXISTS` / `ON CONFLICT DO NOTHING`, so running one twice is safe.
-New migrations get the next number and are added to the compose mounts.
+Every migration must stay safe to run twice (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`), because
+`001` has already run by hand or by initdb on existing databases and the runner simply re-applies it
+once. New migrations get the next number; they need no compose change.
+
+## Retention and compression
+
+- Error events are compressed after **14 days** (events up to 7 days old are still accepted, so
+  compression waits longer than that) and deleted after **90 days**. TimescaleDB runs both as
+  background jobs; see them with `SELECT * FROM timescaledb_information.jobs`.
+- Issues are kept; only the raw events age out.
+- Backups (`deploy/backup.sh`) are the only copy of data older than 90 days.
 
 ## What's stored, and what isn't
 

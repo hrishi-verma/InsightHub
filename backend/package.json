@@ -9,7 +9,11 @@
     "test": "vitest run",
     "create-user": "node scripts/create-user.js",
     "create-key": "node scripts/create-key.js",
-    "revoke-key": "node scripts/revoke-key.js"
+    "revoke-key": "node scripts/revoke-key.js",
+    "migrate": "node scripts/migrate.js",
+    "users": "node scripts/users.js",
+    "create-project": "node scripts/create-project.js",
+    "list-keys": "node scripts/list-keys.js"
   },
   "dependencies": {
     "@confluentinc/kafka-javascript": "1.11.0",

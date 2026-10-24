@@ -182,7 +182,7 @@ describe('issue detail and events', () => {
     expect(res.status).toBe(200);
     expect(res.body.issue).toMatchObject({ id: issueIds[0], project: 'education-enlightened', status: 'unresolved', event_count: 10 });
     expect(Object.keys(res.body.issue).sort()).toEqual(
-      ['culprit', 'error_type', 'event_count', 'fingerprint', 'first_seen', 'id', 'last_release', 'last_seen', 'project', 'source', 'status', 'title'],
+      ['culprit', 'error_type', 'event_count', 'fingerprint', 'first_seen', 'id', 'last_release', 'last_seen', 'project', 'source', 'status', 'status_changed_at', 'status_changed_by', 'title'],
     );
     expect(res.body.hourly).toHaveLength(24);
     expect(res.body.hourly.reduce((a, h) => a + h.count, 0)).toBe(5);
@@ -234,6 +234,38 @@ describe('admin-only changes', () => {
     await send('patch', `/api/v1/issues/${issueIds[0]}`, { status: 'unresolved' });
     ({ rows } = await getPool().query('SELECT resolved_at FROM issues WHERE id = $1', [issueIds[0]]));
     expect(rows[0].resolved_at).toBeNull();
+  });
+
+  it('records who changed the status and when, and leaves it alone on a same-status PATCH', async () => {
+    const { send, get } = await loggedIn('admin');
+    const before = await get(`/api/v1/issues/${issueIds[0]}`);
+    expect(before.body.issue.status_changed_at).toBeNull();
+    expect(before.body.issue.status_changed_by).toBeNull();
+
+    const res = await send('patch', `/api/v1/issues/${issueIds[0]}`, { status: 'resolved' });
+    expect(res.body.issue.status_changed_by).toBe('admin@example.com');
+    const changedAt = res.body.issue.status_changed_at;
+    expect(new Date(changedAt).getTime()).toBeGreaterThan(Date.now() - 60_000);
+
+    // Same status again must not overwrite the earlier change.
+    const again = await send('patch', `/api/v1/issues/${issueIds[0]}`, { status: 'resolved' });
+    expect(again.status).toBe(200);
+    expect(again.body.issue.status_changed_at).toBe(changedAt);
+    expect(again.body.issue.status_changed_by).toBe('admin@example.com');
+
+    const list = await get('/api/v1/issues?project=education-enlightened');
+    const listed = list.body.issues.find((i) => i.id === issueIds[0]);
+    expect(listed.status_changed_by).toBe('admin@example.com');
+  });
+
+  it('keeps the timestamp but clears the email if the user is deleted', async () => {
+    const admin = await loggedIn('admin');
+    await admin.send('patch', `/api/v1/issues/${issueIds[0]}`, { status: 'ignored' });
+    await getPool().query(`UPDATE issues SET status_changed_by = (SELECT id FROM users WHERE email = 'viewer@example.com') WHERE id = $1`, [issueIds[0]]);
+    await getPool().query(`DELETE FROM users WHERE email = 'viewer@example.com'`);
+    const res = await admin.get(`/api/v1/issues/${issueIds[0]}`);
+    expect(res.body.issue.status_changed_by).toBeNull();
+    expect(res.body.issue.status_changed_at).not.toBeNull();
   });
 
   it('rejects bad PATCH bodies and PATCH without Origin', async () => {

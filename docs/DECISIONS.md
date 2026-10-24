@@ -312,3 +312,17 @@ Before scrubbing, `%20 %23 %26 %2B %2F %3A %3D %3F %40` are decoded, so `jane%40
 `cb%3Fcode%3D123` are caught. Other escapes are left as they are. A 4-part dotted number such as a version
 `1.2.3.4` still becomes `[ip]`: the false positive costs readability, the false negative would leak an IP.
 **Why:** roadmap 7d14. Both behaviours are pinned by tests, and the scrubber stays linear (3.7 ms per 64 KB worst case).
+
+## D36 — Migrations by runner; 90-day event retention; audit trail; admin CLIs
+*2026-10-24 · Active (roadmap 7a3, 7b6–9)*
+
+- `npm run migrate` (advisory lock, one transaction per file, `schema_migrations`). Migrations stay idempotent.
+  In containers, compose mounts `database/migrations` read-only at `/database/migrations`.
+- `error_events`: compressed after 14 days, **deleted after 90 days**. Older events survive only in backups.
+  Issues and their counts are kept.
+- `issues.status_changed_at/by`: set only when a PATCH really changes the status. The API shows the email
+  of the user who made the change.
+- CLIs: `users` (list, disable, enable, reset-password, logout), `create-project`, `list-keys`. They never print hashes.
+  Disabling a user or resetting their password ends their sessions.
+**Why:** without retention the database grows forever and keeps error data longer than needed. The rest is basic
+operating ability that was missing.

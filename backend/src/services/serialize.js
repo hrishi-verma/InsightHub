@@ -16,6 +16,8 @@ function issue(row) {
     last_seen: iso(row.last_seen),
     event_count: Number(row.event_count),
     last_release: row.last_release,
+    status_changed_at: iso(row.status_changed_at),
+    status_changed_by: row.status_changed_by ?? null,
   };
 }
 

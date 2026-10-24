@@ -133,11 +133,15 @@ Created by `database/migrations/001_error_tracking.sql` (owned by the lead). Sum
 | `api_keys` | Ingestion keys | `project_id`, `kind` (`secret`/`public`), `key_prefix` (first 12 chars, for display), `key_hash` (SHA-256 hex, unique), `allowed_origins text[]`, `revoked_at`, `last_used_at` |
 | `users` | Dashboard logins | `email` (unique, lower-case), `password_hash` (bcrypt, cost ≥ 12), `role` (`admin`/`viewer`), `disabled_at` |
 | `sessions` | Dashboard sessions | `token_hash` (SHA-256 of the cookie value, PK), `user_id`, `expires_at`, `last_seen_at` |
-| `issues` | One row per distinct error (grouped by fingerprint) | `project_id`, `fingerprint` (unique per project), `source`, `error_type`, `title`, `culprit`, `status` (`unresolved`/`resolved`/`ignored`), `first_seen`, `last_seen`, `event_count`, `last_release`, `resolved_at` |
+| `issues` | One row per distinct error (grouped by fingerprint) | `project_id`, `fingerprint` (unique per project), `source`, `error_type`, `title`, `culprit`, `status` (`unresolved`/`resolved`/`ignored`), `first_seen`, `last_seen`, `event_count`, `last_release`, `resolved_at`, `status_changed_at`, `status_changed_by` (users.id, set null on delete; amended 2026-10-24) |
 | `error_events` | Every occurrence (hypertable on `occurred_at`) | all Event fields + `project_id`, `issue_id`, `received_at`, `ml_score`, `ml_model_version`. PK `(event_id, occurred_at)` |
 | `issue_alerts` | Alerts raised by rules | `project_id`, `issue_id`, `kind` (`new_issue`/`spike`/`regression`), `details jsonb`, `created_at`, `acknowledged_at`, `acknowledged_by` |
 
 The legacy `logs` and `log_aggregates` tables stay as they are.
+
+**Migrations and retention (amended 2026-10-24):** `database/migrations/NNN_*.sql` are applied in order by
+`npm run migrate` (backend), which records them in `schema_migrations(version, applied_at)`. `002` compresses
+`error_events` chunks older than 14 days and drops them after **90 days**. Issues, alerts and counts remain.
 
 ### Processing rules (processor)
 
@@ -209,7 +213,8 @@ message for unknown email and wrong password.
 - In production the dashboard and API must share a registrable domain over https (the cookie is `SameSite=Strict`).
 
 `user` = `{ id, email, role }`. `Issue` = `{ id, project, fingerprint, source, error_type, title,
-culprit, status, first_seen, last_seen, event_count, last_release }`. Timestamps are ISO 8601 UTC
+culprit, status, first_seen, last_seen, event_count, last_release, status_changed_at, status_changed_by }`
+(`status_changed_by` = the email of the user who last changed the status, or null; amended 2026-10-24). Timestamps are ISO 8601 UTC
 strings. Cursors are opaque strings. Anything not found, or in another project, is **404**.
 
 ---
@@ -224,3 +229,7 @@ strings. Cursors are opaque strings. Anything not found, or in another project, 
   prints the key **once**. `--origin` is repeatable and required for public keys (exact origins,
   `https://` in production; `http://localhost:*` allowed only when `NODE_ENV=development`).
 - `npm run revoke-key -- --prefix ih_pk_abc123`
+- `npm run list-keys [-- --project slug]` (never prints hashes) and `npm run create-project -- --slug s --name n`
+- `npm run users -- list | disable --email e | enable --email e | reset-password --email e | logout --email e`
+  (`disable` and `reset-password` also end that user's sessions)
+- `npm run migrate [-- --dry-run]` (amended 2026-10-24)

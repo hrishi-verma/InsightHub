@@ -81,6 +81,14 @@ nmap -Pn -p 1-65535 <VPS-IP>
 
 ## 5. Users and keys
 
+First apply the database migrations (safe to repeat):
+
+```bash
+docker compose exec backend node scripts/migrate.js
+```
+
+Then:
+
 ```bash
 docker compose exec -it backend node scripts/create-user.js --email <owner email> --role admin   # asks for the password
 docker compose exec backend node scripts/create-key.js --project education-enlightened --kind secret
@@ -122,5 +130,10 @@ cd /opt/insighthub && git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-New SQL migrations don't run automatically on an existing database. Apply them as `database/README.md` says.
+New SQL migrations don't run automatically. After every update run:
+
+```bash
+docker compose exec backend node scripts/migrate.js   # applies only what is new
+```
+
 Changing `DOMAIN` means rebuilding the dashboard image (`--build`), because its API URL is baked in.
